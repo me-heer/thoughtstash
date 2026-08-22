@@ -107,11 +107,19 @@ struct ContentView: View {
 
     private var topBar: some View {
         HStack(spacing: 10) {
-            Image(systemName: "magnifyingglass")
-                .foregroundStyle(.secondary)
-            TextField("Search", text: $searchText)
-                .textFieldStyle(.plain)
-                .focused($isSearchFocused)
+            HStack(spacing: 9) {
+                Image(systemName: "magnifyingglass")
+                    .foregroundStyle(.secondary)
+                TextField("Search", text: $searchText)
+                    .textFieldStyle(.plain)
+                    .focused($isSearchFocused)
+            }
+            .padding(.horizontal, 11)
+            .frame(height: 34)
+            .background(.white.opacity(0.58), in: Capsule())
+            .overlay { Capsule().stroke(.white.opacity(0.65), lineWidth: 0.75) }
+            .shadow(color: .black.opacity(0.05), radius: 8, y: 3)
+
             Menu {
                 Button("New Longform Note…", systemImage: "doc.richtext") {
                     longformContext = LongformEditorContext(note: nil)
@@ -128,19 +136,15 @@ struct ContentView: View {
                 }
             } label: {
                 Image(systemName: "ellipsis")
-                    .frame(width: 28, height: 28)
-                    .background(.white.opacity(0.48), in: Circle())
+                    .frame(width: 34, height: 34)
+                    .background(.white.opacity(0.78), in: Circle())
+                    .overlay { Circle().stroke(.black.opacity(0.07), lineWidth: 0.75) }
+                    .shadow(color: .black.opacity(0.05), radius: 8, y: 3)
             }
             .menuStyle(.borderlessButton)
+            .menuIndicator(.hidden)
             .fixedSize()
         }
-        .padding(8)
-        .background(.white.opacity(0.58), in: RoundedRectangle(cornerRadius: 13))
-        .overlay {
-            RoundedRectangle(cornerRadius: 13)
-                .stroke(.white.opacity(0.65), lineWidth: 0.75)
-        }
-        .shadow(color: .black.opacity(0.05), radius: 8, y: 3)
         .padding(.horizontal, 12)
         .padding(.top, 12)
         .padding(.bottom, 10)
@@ -229,6 +233,7 @@ struct ContentView: View {
                         .frame(width: 24, height: 24)
                 }
                 .menuStyle(.borderlessButton)
+                .menuIndicator(.hidden)
                 .fixedSize()
 
                 TextField("Add a note or a prompt", text: $draft, axis: .vertical)
