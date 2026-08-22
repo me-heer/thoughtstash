@@ -9,11 +9,22 @@ struct ContentView: View {
     @State private var editingNote: CopperNote?
     @State private var expandedNote: CopperNote?
     @State private var isAddingSection = false
+    @State private var longformContext: LongformEditorContext?
     @FocusState private var isComposerFocused: Bool
+    @FocusState private var isSearchFocused: Bool
 
     private var filteredNotes: [CopperNote] {
         guard !searchText.isEmpty else { return store.notes }
-        return store.notes.filter { $0.text.localizedCaseInsensitiveContains(searchText) }
+        return store.notes.filter {
+            $0.text.localizedCaseInsensitiveContains(searchText)
+                || ($0.title?.localizedCaseInsensitiveContains(searchText) ?? false)
+        }
+    }
+
+    private var orderedVisibleNotes: [CopperNote] {
+        store.sections.flatMap { section in
+            filteredNotes.filter { $0.sectionID == section.id }
+        }
     }
 
     var body: some View {
@@ -39,11 +50,57 @@ struct ContentView: View {
         .sheet(isPresented: $isAddingSection) {
             NewSectionView { store.addSection(named: $0) }
         }
+        .sheet(item: $longformContext) { context in
+            LongformEditor(
+                note: context.note,
+                sections: store.sections,
+                initialSectionID: store.activeSectionID
+            ) { title, markdown, sectionID in
+                if let note = context.note {
+                    store.updateNote(
+                        id: note.id,
+                        text: markdown,
+                        title: title,
+                        kind: .longform,
+                        sectionID: sectionID
+                    )
+                } else {
+                    store.addNote(
+                        markdown,
+                        sectionID: sectionID,
+                        title: title,
+                        kind: .longform
+                    )
+                }
+            }
+        }
         .onAppear {
             DispatchQueue.main.async { isComposerFocused = true }
         }
         .onReceive(NotificationCenter.default.publisher(for: .copperFocusComposer)) { _ in
             DispatchQueue.main.async { isComposerFocused = true }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .copperNewLongform)) { _ in
+            longformContext = LongformEditorContext(note: nil)
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .copperNewSection)) { _ in
+            isAddingSection = true
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .copperFocusSearch)) { _ in
+            isSearchFocused = true
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .copperSelectNext)) { _ in selectRelative(1) }
+        .onReceive(NotificationCenter.default.publisher(for: .copperSelectPrevious)) { _ in selectRelative(-1) }
+        .onReceive(NotificationCenter.default.publisher(for: .copperCopySelected)) { _ in store.copy(selectedIDs, asList: false) }
+        .onReceive(NotificationCenter.default.publisher(for: .copperCopySelectedAsList)) { _ in store.copy(selectedIDs, asList: true) }
+        .onReceive(NotificationCenter.default.publisher(for: .copperToggleDone)) { _ in store.toggleDone(selectedIDs) }
+        .onReceive(NotificationCenter.default.publisher(for: .copperEditSelected)) { _ in editPrimarySelection() }
+        .onReceive(NotificationCenter.default.publisher(for: .copperExpandSelected)) { _ in expandedNote = primarySelectedNote }
+        .onReceive(NotificationCenter.default.publisher(for: .copperMergeSelected)) { _ in mergeSelection() }
+        .onReceive(NotificationCenter.default.publisher(for: .copperMoveToNextSection)) { _ in moveSelectionToNextSection() }
+        .onReceive(NotificationCenter.default.publisher(for: .copperDeleteSelected)) { _ in deleteSelection() }
+        .onReceive(NotificationCenter.default.publisher(for: .copperDeleteActiveSection)) { _ in
+            store.deleteSection(store.activeSectionID)
         }
         .animation(.snappy(duration: 0.2), value: selectedIDs)
     }
@@ -54,7 +111,11 @@ struct ContentView: View {
                 .foregroundStyle(.secondary)
             TextField("Search", text: $searchText)
                 .textFieldStyle(.plain)
+                .focused($isSearchFocused)
             Menu {
+                Button("New Longform Note…", systemImage: "doc.richtext") {
+                    longformContext = LongformEditorContext(note: nil)
+                }
                 Button("New Section…", systemImage: "folder.badge.plus") {
                     isAddingSection = true
                 }
@@ -146,31 +207,43 @@ struct ContentView: View {
     }
 
     private var composer: some View {
-        HStack(alignment: .bottom, spacing: 10) {
-            Menu {
-                ForEach(store.sections) { section in
-                    Button(section.name) { store.activeSectionID = section.id }
+        VStack(alignment: .leading, spacing: 9) {
+            if containsMarkdown(draft) {
+                ScrollView {
+                    MarkdownPreview(markdown: draft, compact: true)
+                        .font(.system(size: 13))
+                        .padding(.horizontal, 3)
                 }
-            } label: {
-                Image(systemName: "circle")
-                    .foregroundStyle(.secondary)
-                    .frame(width: 24, height: 24)
+                .frame(maxHeight: 110)
+                Divider()
             }
-            .menuStyle(.borderlessButton)
-            .fixedSize()
 
-            TextField("Add a note or a prompt", text: $draft, axis: .vertical)
-                .textFieldStyle(.plain)
-                .lineLimit(1...5)
-                .focused($isComposerFocused)
-                .onSubmit(addDraft)
-
-            if !draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                Button(action: addDraft) {
-                    Image(systemName: "arrow.up.circle.fill")
+            HStack(alignment: .bottom, spacing: 10) {
+                Menu {
+                    ForEach(store.sections) { section in
+                        Button(section.name) { store.activeSectionID = section.id }
+                    }
+                } label: {
+                    Image(systemName: "circle")
+                        .foregroundStyle(.secondary)
+                        .frame(width: 24, height: 24)
                 }
-                .buttonStyle(.plain)
-                .foregroundStyle(.tint)
+                .menuStyle(.borderlessButton)
+                .fixedSize()
+
+                TextField("Add a note or a prompt", text: $draft, axis: .vertical)
+                    .textFieldStyle(.plain)
+                    .lineLimit(1...5)
+                    .focused($isComposerFocused)
+                    .onSubmit(addDraft)
+
+                if !draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    Button(action: addDraft) {
+                        Image(systemName: "arrow.up.circle.fill")
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(.tint)
+                }
             }
         }
         .padding(13)
@@ -197,7 +270,10 @@ struct ContentView: View {
         Button("Expand", systemImage: "arrow.up.left.and.arrow.down.right") {
             expandedNote = note
         }
-        Button("Edit", systemImage: "pencil") { editingNote = note }
+        Button("Edit", systemImage: "pencil") {
+            if note.isLongform { longformContext = LongformEditorContext(note: note) }
+            else { editingNote = note }
+        }
         if ids.count > 1 {
             Button("Merge Notes", systemImage: "arrow.triangle.merge") {
                 if let mergedID = store.merge(ids) { selectedIDs = [mergedID] }
@@ -224,6 +300,52 @@ struct ContentView: View {
         else { selectedIDs.insert(id) }
     }
 
+    private var primarySelectedNote: CopperNote? {
+        orderedVisibleNotes.first { selectedIDs.contains($0.id) }
+    }
+
+    private func selectRelative(_ offset: Int) {
+        guard !orderedVisibleNotes.isEmpty else { return }
+        let currentIndex = primarySelectedNote.flatMap { current in
+            orderedVisibleNotes.firstIndex(where: { $0.id == current.id })
+        }
+        let nextIndex: Int
+        if let currentIndex {
+            nextIndex = min(max(currentIndex + offset, 0), orderedVisibleNotes.count - 1)
+        } else {
+            nextIndex = offset < 0 ? orderedVisibleNotes.count - 1 : 0
+        }
+        selectedIDs = [orderedVisibleNotes[nextIndex].id]
+    }
+
+    private func editPrimarySelection() {
+        guard let note = primarySelectedNote else { return }
+        if note.isLongform { longformContext = LongformEditorContext(note: note) }
+        else { editingNote = note }
+    }
+
+    private func mergeSelection() {
+        if let mergedID = store.merge(selectedIDs) { selectedIDs = [mergedID] }
+    }
+
+    private func moveSelectionToNextSection() {
+        guard !selectedIDs.isEmpty,
+              let currentSectionID = primarySelectedNote?.sectionID,
+              let currentIndex = store.sections.firstIndex(where: { $0.id == currentSectionID }) else { return }
+        let next = store.sections[(currentIndex + 1) % store.sections.count]
+        store.move(selectedIDs, to: next.id)
+    }
+
+    private func deleteSelection() {
+        store.delete(selectedIDs)
+        selectedIDs.removeAll()
+    }
+
+    private func containsMarkdown(_ text: String) -> Bool {
+        text.contains("**") || text.contains("*") || text.contains("# ")
+            || text.contains("- ") || text.contains("> ") || text.contains("```")
+    }
+
     private func addDraft() {
         store.addNote(draft)
         draft = ""
@@ -241,13 +363,19 @@ private struct NoteRow: View {
                 Image(systemName: isSelected ? "checkmark.circle.fill" : (note.isDone ? "checkmark.circle" : "circle"))
                     .foregroundStyle(isSelected ? Color.accentColor : .secondary)
                     .padding(.top, 2)
-                Text(.init(note.text))
-                    .font(.system(size: 14))
-                    .foregroundStyle(note.isDone ? .secondary : .primary)
-                    .strikethrough(note.isDone)
-                    .lineLimit(7)
-                    .multilineTextAlignment(.leading)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                VStack(alignment: .leading, spacing: 5) {
+                    if note.isLongform {
+                        Label(note.title ?? "Untitled", systemImage: "doc.richtext")
+                            .font(.system(size: 14, weight: .semibold))
+                    }
+                    RichNoteText(note: note)
+                        .font(.system(size: 14))
+                        .foregroundStyle(note.isDone ? .secondary : .primary)
+                        .strikethrough(note.isDone)
+                        .lineLimit(note.isLongform ? 4 : 7)
+                        .multilineTextAlignment(.leading)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
             .padding(13)
             .background(.white.opacity(0.82), in: RoundedRectangle(cornerRadius: 12))
@@ -284,9 +412,23 @@ private struct NoteEditor: View {
                 .scrollContentBackground(.hidden)
                 .padding(8)
                 .background(.quaternary.opacity(0.35), in: RoundedRectangle(cornerRadius: 8))
+            if !text.isEmpty {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("PREVIEW")
+                        .font(.caption.weight(.semibold))
+                        .tracking(1)
+                        .foregroundStyle(.secondary)
+                    ScrollView {
+                        MarkdownPreview(markdown: text, compact: true)
+                            .padding(8)
+                    }
+                }
+                .frame(maxHeight: 130)
+            }
             HStack {
                 Spacer()
                 Button("Cancel") { dismiss() }
+                    .keyboardShortcut(.cancelAction)
                 Button("Save") {
                     onSave(text)
                     dismiss()
@@ -307,15 +449,21 @@ private struct ExpandedNote: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             HStack {
-                Text("Note").font(.headline)
+                Text(note.title ?? "Note").font(.headline)
                 Spacer()
                 Button("Done") { dismiss() }
                     .keyboardShortcut(.cancelAction)
             }
             ScrollView {
-                Text(.init(note.text))
-                    .textSelection(.enabled)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                if note.isLongform {
+                    MarkdownPreview(markdown: note.text)
+                        .textSelection(.enabled)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                } else {
+                    RichNoteText(note: note)
+                        .textSelection(.enabled)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
             }
         }
         .padding(24)
@@ -323,18 +471,39 @@ private struct ExpandedNote: View {
     }
 }
 
+private struct LongformEditorContext: Identifiable {
+    let id = UUID()
+    let note: CopperNote?
+}
+
+private struct RichNoteText: View {
+    let note: CopperNote
+
+    var body: some View {
+        if let data = note.richTextRTF,
+           let richText = RichTextCodec.attributedString(fromRTF: data) {
+            Text(AttributedString(richText))
+        } else {
+            Text(.init(note.text))
+        }
+    }
+}
+
 private struct NewSectionView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var name = ""
+    @FocusState private var isNameFocused: Bool
     let onCreate: (String) -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             Text("New Section").font(.headline)
             TextField("Section name", text: $name)
+                .focused($isNameFocused)
             HStack {
                 Spacer()
                 Button("Cancel") { dismiss() }
+                    .keyboardShortcut(.cancelAction)
                 Button("Create") {
                     onCreate(name)
                     dismiss()
@@ -346,6 +515,7 @@ private struct NewSectionView: View {
         }
         .padding(20)
         .frame(width: 360)
+        .onAppear { isNameFocused = true }
     }
 }
 

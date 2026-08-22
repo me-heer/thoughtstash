@@ -6,6 +6,16 @@ struct CopperNote: Identifiable, Codable, Equatable {
     var sectionID: UUID
     var createdAt = Date()
     var isDone = false
+    var richTextRTF: Data?
+    var title: String?
+    var kind: NoteKind?
+
+    var isLongform: Bool { kind == .longform }
+}
+
+enum NoteKind: String, Codable {
+    case quick
+    case longform
 }
 
 struct CopperSection: Identifiable, Codable, Equatable {

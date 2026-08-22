@@ -33,19 +33,41 @@ final class CopperStore: ObservableObject {
     var captureShortcut: CaptureShortcut { document.captureShortcut }
     var captureInterval: Double { document.captureInterval }
 
-    func addNote(_ rawText: String, sectionID: UUID? = nil) {
+    func addNote(
+        _ rawText: String,
+        sectionID: UUID? = nil,
+        richTextRTF: Data? = nil,
+        title: String? = nil,
+        kind: NoteKind = .quick
+    ) {
         let text = rawText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else { return }
         let destination = sectionID ?? activeSectionID
-        document.notes.insert(CopperNote(text: text, sectionID: destination), at: 0)
+        document.notes.insert(CopperNote(
+            text: text,
+            sectionID: destination,
+            richTextRTF: richTextRTF,
+            title: title,
+            kind: kind
+        ), at: 0)
         save()
     }
 
-    func updateNote(id: UUID, text: String) {
+    func updateNote(
+        id: UUID,
+        text: String,
+        title: String? = nil,
+        kind: NoteKind? = nil,
+        sectionID: UUID? = nil
+    ) {
         guard let index = document.notes.firstIndex(where: { $0.id == id }) else { return }
         let cleaned = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !cleaned.isEmpty else { return }
         document.notes[index].text = cleaned
+        document.notes[index].richTextRTF = nil
+        if let title { document.notes[index].title = title.trimmingCharacters(in: .whitespacesAndNewlines) }
+        if let kind { document.notes[index].kind = kind }
+        if let sectionID { document.notes[index].sectionID = sectionID }
         save()
     }
 
@@ -75,10 +97,12 @@ final class CopperStore: ObservableObject {
             .sorted { $0.createdAt < $1.createdAt }
         guard selected.count > 1, let first = selected.first else { return nil }
         document.notes.removeAll { ids.contains($0.id) }
+        let mergedRTF = RichTextCodec.mergedRTF(notes: selected, asList: false)
         let merged = CopperNote(
             text: selected.map(\.text).joined(separator: "\n\n"),
             sectionID: first.sectionID,
-            createdAt: Date()
+            createdAt: Date(),
+            richTextRTF: mergedRTF
         )
         document.notes.insert(merged, at: 0)
         save()
@@ -129,6 +153,9 @@ final class CopperStore: ObservableObject {
         }
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(value, forType: .string)
+        if let rtf = RichTextCodec.mergedRTF(notes: selected, asList: asList) {
+            NSPasteboard.general.setData(rtf, forType: .rtf)
+        }
     }
 
     private func save() {
@@ -146,4 +173,18 @@ final class CopperStore: ObservableObject {
 extension Notification.Name {
     static let copperShortcutChanged = Notification.Name("CopperShortcutChanged")
     static let copperFocusComposer = Notification.Name("CopperFocusComposer")
+    static let copperNewLongform = Notification.Name("CopperNewLongform")
+    static let copperNewSection = Notification.Name("CopperNewSection")
+    static let copperFocusSearch = Notification.Name("CopperFocusSearch")
+    static let copperSelectNext = Notification.Name("CopperSelectNext")
+    static let copperSelectPrevious = Notification.Name("CopperSelectPrevious")
+    static let copperCopySelected = Notification.Name("CopperCopySelected")
+    static let copperCopySelectedAsList = Notification.Name("CopperCopySelectedAsList")
+    static let copperToggleDone = Notification.Name("CopperToggleDone")
+    static let copperEditSelected = Notification.Name("CopperEditSelected")
+    static let copperExpandSelected = Notification.Name("CopperExpandSelected")
+    static let copperMergeSelected = Notification.Name("CopperMergeSelected")
+    static let copperMoveToNextSection = Notification.Name("CopperMoveToNextSection")
+    static let copperDeleteSelected = Notification.Name("CopperDeleteSelected")
+    static let copperDeleteActiveSection = Notification.Name("CopperDeleteActiveSection")
 }

@@ -26,6 +26,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let menu = NSMenu()
         menu.addItem(withTitle: "Show Copper", action: #selector(showCopper), keyEquivalent: " ")
         menu.addItem(withTitle: "Capture Selected Text", action: #selector(captureSelectedText), keyEquivalent: "")
+        menu.addItem(withTitle: "New Longform Note…", action: #selector(newLongform), keyEquivalent: "")
+        menu.addItem(withTitle: "New Section…", action: #selector(newSection), keyEquivalent: "")
         menu.addItem(.separator())
         menu.addItem(withTitle: "Settings…", action: #selector(openSettings), keyEquivalent: ",")
         menu.addItem(withTitle: "Reveal Notes File", action: #selector(revealNotes), keyEquivalent: "")
@@ -38,6 +40,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     @objc private func showCopper() { panelController.show() }
 
     @objc private func captureSelectedText() { captureService.captureSelection() }
+
+    @objc private func newLongform() {
+        panelController.show()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.08) {
+            NotificationCenter.default.post(name: .copperNewLongform, object: nil)
+        }
+    }
+
+    @objc private func newSection() {
+        panelController.show()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.08) {
+            NotificationCenter.default.post(name: .copperNewSection, object: nil)
+        }
+    }
 
     @objc private func openSettings() {
         NSApp.activate(ignoringOtherApps: true)

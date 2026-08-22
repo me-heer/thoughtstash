@@ -1,3 +1,4 @@
+import AppKit
 import XCTest
 @testable import Copper
 
@@ -49,5 +50,38 @@ final class CopperStoreTests: XCTestCase {
 
         XCTAssertEqual(store.sections.count, 1)
         XCTAssertEqual(store.notes.first?.sectionID, store.sections[0].id)
+    }
+
+    func testLongformNotePersistsTitleKindAndMarkdown() throws {
+        let store = CopperStore(fileURL: fileURL)
+        store.addNote(
+            "# Plan\n\nThis is **important**.",
+            title: "Launch plan",
+            kind: .longform
+        )
+
+        let reloaded = CopperStore(fileURL: fileURL)
+        let note = try XCTUnwrap(reloaded.notes.first)
+
+        XCTAssertEqual(note.title, "Launch plan")
+        XCTAssertEqual(note.kind, .longform)
+        XCTAssertEqual(note.text, "# Plan\n\nThis is **important**.")
+    }
+
+    func testRichTextPersistsAndIsClearedByPlainTextEdit() throws {
+        let richText = NSAttributedString(
+            string: "Formatted",
+            attributes: [.font: NSFont.boldSystemFont(ofSize: 14)]
+        )
+        let rtf = try XCTUnwrap(RichTextCodec.rtfData(from: richText))
+        let store = CopperStore(fileURL: fileURL)
+        store.addNote("Formatted", richTextRTF: rtf)
+
+        let reloaded = CopperStore(fileURL: fileURL)
+        let note = try XCTUnwrap(reloaded.notes.first)
+        XCTAssertNotNil(note.richTextRTF)
+
+        reloaded.updateNote(id: note.id, text: "Plain")
+        XCTAssertNil(reloaded.notes.first?.richTextRTF)
     }
 }

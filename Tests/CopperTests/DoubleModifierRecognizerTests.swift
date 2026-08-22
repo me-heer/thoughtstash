@@ -8,8 +8,8 @@ final class DoubleModifierRecognizerTests: XCTestCase {
 
         XCTAssertFalse(recognizer.process(shift(down: true, at: 1.0), shortcut: .shift, interval: 0.42))
         XCTAssertFalse(recognizer.process(shift(down: false, at: 1.05), shortcut: .shift, interval: 0.42))
-        XCTAssertTrue(recognizer.process(shift(down: true, at: 1.20), shortcut: .shift, interval: 0.42))
-        XCTAssertFalse(recognizer.process(shift(down: false, at: 1.25), shortcut: .shift, interval: 0.42))
+        XCTAssertFalse(recognizer.process(shift(down: true, at: 1.20), shortcut: .shift, interval: 0.42))
+        XCTAssertTrue(recognizer.process(shift(down: false, at: 1.25), shortcut: .shift, interval: 0.42))
     }
 
     func testDoesNotRecognizeHeldShiftOrExpiredSequence() {

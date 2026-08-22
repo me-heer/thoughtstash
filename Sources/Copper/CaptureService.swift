@@ -70,13 +70,8 @@ final class CaptureService {
             return
         }
 
-        if let text = selectedText()?.trimmingCharacters(in: .whitespacesAndNewlines),
-           !text.isEmpty {
-            finishCapture(text)
-            return
-        }
-
-        captureSelectionThroughClipboard()
+        let accessibilityText = selectedText()?.trimmingCharacters(in: .whitespacesAndNewlines)
+        captureSelectionThroughClipboard(fallbackText: accessibilityText)
     }
 
     private func installLocalMonitor() {
@@ -158,7 +153,7 @@ final class CaptureService {
         return selectedValue as? String
     }
 
-    private func captureSelectionThroughClipboard() {
+    private func captureSelectionThroughClipboard(fallbackText: String?) {
         let pasteboard = NSPasteboard.general
         let snapshot = PasteboardSnapshot(pasteboard: pasteboard)
         let marker = "copper-capture-\(UUID().uuidString)"
@@ -166,17 +161,42 @@ final class CaptureService {
         pasteboard.setString(marker, forType: .string)
 
         postCopyShortcut()
+        readCopiedSelection(
+            from: pasteboard,
+            excluding: marker,
+            snapshot: snapshot,
+            fallbackText: fallbackText,
+            attemptsRemaining: 10
+        )
+    }
 
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) { [weak self] in
-            let copiedText = pasteboard.string(forType: .string)?
-                .trimmingCharacters(in: .whitespacesAndNewlines)
-            snapshot.restore(to: pasteboard)
-
+    private func readCopiedSelection(
+        from pasteboard: NSPasteboard,
+        excluding marker: String,
+        snapshot: PasteboardSnapshot,
+        fallbackText: String?,
+        attemptsRemaining: Int
+    ) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.04) { [weak self] in
             guard let self else { return }
-            if let copiedText, !copiedText.isEmpty, copiedText != marker {
-                self.finishCapture(copiedText)
+            if let content = RichTextCodec.capturedContent(from: pasteboard, excluding: marker) {
+                snapshot.restore(to: pasteboard)
+                self.finishCapture(content)
+            } else if attemptsRemaining > 1 {
+                self.readCopiedSelection(
+                    from: pasteboard,
+                    excluding: marker,
+                    snapshot: snapshot,
+                    fallbackText: fallbackText,
+                    attemptsRemaining: attemptsRemaining - 1
+                )
             } else {
-                self.showPanel()
+                snapshot.restore(to: pasteboard)
+                if let fallbackText, !fallbackText.isEmpty {
+                    self.finishCapture(CapturedContent(text: fallbackText, richTextRTF: nil))
+                } else {
+                    self.showPanel()
+                }
             }
         }
     }
@@ -191,8 +211,8 @@ final class CaptureService {
         keyUp.post(tap: .cgSessionEventTap)
     }
 
-    private func finishCapture(_ text: String) {
-        store.addNote(text)
+    private func finishCapture(_ content: CapturedContent) {
+        store.addNote(content.text, richTextRTF: content.richTextRTF)
         showToast()
     }
 

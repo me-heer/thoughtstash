@@ -19,7 +19,7 @@ struct DoubleModifierRecognizer {
         case idle
         case firstPressed(TimeInterval)
         case armed(TimeInterval)
-        case latched
+        case secondPressed
     }
 
     private var state: State = .idle
@@ -54,8 +54,9 @@ struct DoubleModifierRecognizer {
             switch state {
             case .firstPressed(let firstDown):
                 state = .armed(firstDown)
-            case .latched:
+            case .secondPressed:
                 state = .idle
+                return true
             default:
                 reset()
             }
@@ -78,8 +79,7 @@ struct DoubleModifierRecognizer {
         case .idle:
             state = .firstPressed(sample.timestamp)
         case .armed(let firstDown) where sample.timestamp - firstDown <= interval:
-            state = .latched
-            return true
+            state = .secondPressed
         default:
             state = .firstPressed(sample.timestamp)
         }
