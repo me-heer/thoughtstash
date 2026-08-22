@@ -4,6 +4,7 @@ import SwiftUI
 struct ComposerMarkdownEditor: NSViewRepresentable {
     @Binding var text: String
     let focusRequest: UUID
+    var fontTheme: AppFontTheme = .sans
     let onFocusChange: (Bool) -> Void
     let onSubmit: () -> Void
 
@@ -49,6 +50,10 @@ struct ComposerMarkdownEditor: NSViewRepresentable {
         context.coordinator.parent = self
         textView.onSubmit = onSubmit
         textView.onFocusChange = onFocusChange
+        if context.coordinator.fontTheme != fontTheme {
+            context.coordinator.fontTheme = fontTheme
+            context.coordinator.applyStyles(to: textView)
+        }
         if textView.string != text {
             let selection = textView.selectedRanges
             textView.string = text
@@ -64,15 +69,22 @@ struct ComposerMarkdownEditor: NSViewRepresentable {
     final class Coordinator: NSObject, NSTextViewDelegate {
         var parent: ComposerMarkdownEditor
         var focusRequest: UUID
-        private let styler = LiveMarkdownEditor.Coordinator(
-            text: .constant(""),
-            focusRequest: UUID(),
-            baseFontSize: 14
-        )
+        private let styler: LiveMarkdownEditor.Coordinator
+
+        var fontTheme: AppFontTheme {
+            get { styler.fontTheme }
+            set { styler.fontTheme = newValue }
+        }
 
         init(parent: ComposerMarkdownEditor) {
             self.parent = parent
             focusRequest = parent.focusRequest
+            styler = LiveMarkdownEditor.Coordinator(
+                text: .constant(""),
+                focusRequest: UUID(),
+                baseFontSize: 14,
+                fontTheme: parent.fontTheme
+            )
         }
 
         func textDidBeginEditing(_ notification: Notification) {

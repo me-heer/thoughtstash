@@ -129,6 +129,20 @@ enum ShortcutMap {
             group: .selection
         ),
         ShortcutEntry(
+            slug: "extendSelectionPrevious",
+            "Extend Selection Up",
+            key: .upArrow, modifiers: [.command, .shift],
+            notification: .stashExtendSelectionPrevious,
+            group: .selection
+        ),
+        ShortcutEntry(
+            slug: "extendSelectionNext",
+            "Extend Selection Down",
+            key: .downArrow, modifiers: [.command, .shift],
+            notification: .stashExtendSelectionNext,
+            group: .selection
+        ),
+        ShortcutEntry(
             slug: "vimSelectPrevious",
             "Select Previous Note (Vim)",
             key: "k", modifiers: [.command],
@@ -140,6 +154,20 @@ enum ShortcutMap {
             "Select Next Note (Vim)",
             key: "j", modifiers: [.command],
             notification: .stashSelectNext,
+            group: .selection
+        ),
+        ShortcutEntry(
+            slug: "vimExtendSelectionPrevious",
+            "Extend Selection Up (Vim)",
+            key: "k", modifiers: [.command, .shift],
+            notification: .stashExtendSelectionPrevious,
+            group: .selection
+        ),
+        ShortcutEntry(
+            slug: "vimExtendSelectionNext",
+            "Extend Selection Down (Vim)",
+            key: "j", modifiers: [.command, .shift],
+            notification: .stashExtendSelectionNext,
             group: .selection
         ),
         ShortcutEntry(
@@ -192,6 +220,13 @@ enum ShortcutMap {
             group: .sections
         ),
         ShortcutEntry(
+            slug: "moveToPreviousSection",
+            "Move to Previous Section",
+            key: .leftArrow, modifiers: [.command, .option],
+            notification: .stashMoveToPreviousSection,
+            group: .sections
+        ),
+        ShortcutEntry(
             slug: "deleteSelected",
             "Delete Selected Notes",
             key: .delete, modifiers: [.command],
@@ -210,6 +245,13 @@ enum ShortcutMap {
             "Reveal Notes File",
             key: "r", modifiers: [.command, .shift],
             notification: .stashRevealNotesFile,
+            group: .app
+        ),
+        ShortcutEntry(
+            slug: "cycleFont",
+            "Cycle App Font",
+            key: "t", modifiers: [.command, .shift],
+            notification: .stashCycleFont,
             group: .app
         ),
         ShortcutEntry(

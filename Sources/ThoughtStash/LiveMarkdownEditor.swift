@@ -4,9 +4,10 @@ import SwiftUI
 struct LiveMarkdownEditor: NSViewRepresentable {
     @Binding var text: String
     let focusRequest: UUID
+    var fontTheme: AppFontTheme = .sans
 
     func makeCoordinator() -> Coordinator {
-        Coordinator(text: $text, focusRequest: focusRequest)
+        Coordinator(text: $text, focusRequest: focusRequest, fontTheme: fontTheme)
     }
 
     func makeNSView(context: Context) -> NSScrollView {
@@ -46,6 +47,10 @@ struct LiveMarkdownEditor: NSViewRepresentable {
     func updateNSView(_ scrollView: NSScrollView, context: Context) {
         guard let textView = scrollView.documentView as? NSTextView else { return }
         context.coordinator.text = $text
+        if context.coordinator.fontTheme != fontTheme {
+            context.coordinator.fontTheme = fontTheme
+            context.coordinator.applyMarkdownStyles(to: textView)
+        }
         if textView.string != text {
             let selection = textView.selectedRanges
             textView.string = text
@@ -63,12 +68,19 @@ struct LiveMarkdownEditor: NSViewRepresentable {
     final class Coordinator: NSObject, NSTextViewDelegate {
         var text: Binding<String>
         var focusRequest: UUID
+        var fontTheme: AppFontTheme
         private let baseFontSize: CGFloat
 
-        init(text: Binding<String>, focusRequest: UUID, baseFontSize: CGFloat = 16) {
+        init(
+            text: Binding<String>,
+            focusRequest: UUID,
+            baseFontSize: CGFloat = 16,
+            fontTheme: AppFontTheme = .sans
+        ) {
             self.text = text
             self.focusRequest = focusRequest
             self.baseFontSize = baseFontSize
+            self.fontTheme = fontTheme
         }
 
         func textDidChange(_ notification: Notification) {
@@ -81,7 +93,7 @@ struct LiveMarkdownEditor: NSViewRepresentable {
             guard let storage = textView.textStorage else { return }
             let selection = textView.selectedRanges
             let fullRange = NSRange(location: 0, length: storage.length)
-            let baseFont = NSFont.systemFont(ofSize: baseFontSize)
+            let baseFont = fontTheme.nsFont(size: baseFontSize)
             let paragraph = NSMutableParagraphStyle()
             paragraph.lineSpacing = 5
 
@@ -128,7 +140,7 @@ struct LiveMarkdownEditor: NSViewRepresentable {
                     let size: CGFloat = level == 1 ? 27 : (level == 2 ? 22 : 18)
                     storage.addAttribute(
                         .font,
-                        value: NSFont.systemFont(ofSize: size, weight: .semibold),
+                        value: self.fontTheme.nsFont(size: size, weight: .semibold),
                         range: contentRange
                     )
                     styleMarker(heading.range, lineOffset: lineRange.location, in: storage)
@@ -146,7 +158,7 @@ struct LiveMarkdownEditor: NSViewRepresentable {
             let source = storage.string
             apply(#"\*\*([^*\n]+)\*\*|__([^_\n]+)__"#, to: source) { match in
                 let content = match.range(at: 1).location != NSNotFound ? match.range(at: 1) : match.range(at: 2)
-                storage.addAttribute(.font, value: NSFont.systemFont(ofSize: baseFont.pointSize, weight: .bold), range: content)
+                storage.addAttribute(.font, value: self.fontTheme.nsFont(size: baseFont.pointSize, weight: .bold), range: content)
                 self.styleOuterMarkers(match.range, content: content, in: storage)
             }
             apply(#"(?<!\*)\*([^*\n]+)\*(?!\*)|(?<!_)_([^_\n]+)_(?!_)"#, to: source) { match in

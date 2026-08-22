@@ -8,6 +8,7 @@ struct NoteEditorContext: Identifiable {
 
 struct NoteEditor: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.appFontTheme) private var fontTheme
     let sections: [StashSection]
     let onSave: (_ markdown: String, _ sectionID: UUID) -> Void
 
@@ -41,7 +42,7 @@ struct NoteEditor: View {
         VStack(spacing: 0) {
             header
             Divider()
-            LiveMarkdownEditor(text: $markdown, focusRequest: focusRequest)
+            LiveMarkdownEditor(text: $markdown, focusRequest: focusRequest, fontTheme: fontTheme)
                 .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 12))
             .padding(18)
 

@@ -3,7 +3,7 @@
 ## Product principles
 
 - **Capture without context switching.** Double-tap Shift from any app to save selected text. With no selection, show Thought Stash and focus the composer.
-- **Keyboard first.** Every note and section operation has a menu command and shortcut. Pointer controls remain available, but are not required.
+- **Keyboard first.** Every note and section operation has a menu command and shortcut. Pointer controls remain available, but are not required. List navigation is anchored the way platform lists are — a cursor the arrows move, an anchor a ⇧-extended range grows from — and stepping down past the last note hands focus to the composer rather than sticking to the end.
 - **Local and durable.** Thought Stash has no account, analytics, or network sync. Notes live in `~/Library/Application Support/Thought Stash/notes.json`.
 - **Quiet, temporary UI.** Thought Stash is a compact notes window that should appear reliably, accept input immediately, and get out of the way.
 
@@ -64,13 +64,14 @@ Secure Input can intentionally prevent macOS from exposing global keyboard event
 | New section | ⌥⌘N |
 | Search | ⌘F |
 | Select previous / next note | ⌘↑ / ⌘↓ or ⌘K / ⌘J |
+| Extend selection up / down | ⇧⌘↑ / ⇧⌘↓ or ⇧⌘K / ⇧⌘J |
 | Copy selected notes | ⌥⌘C |
 | Copy selected as numbered list | ⇧⌘C |
 | Mark selected done / not done | ⌘D |
 | Edit selected note | ⌘E |
 | Expand selected note | ⌥⌘Return |
 | Merge selected notes | ⇧⌘M |
-| Move selected notes to next section | ⌥⌘→ |
+| Move selected notes to previous / next section | ⌥⌘← / ⌥⌘→ |
 | Delete selected notes | ⌘Delete |
 | Delete active section | ⌥⌘Delete |
 | Save a note | ⌘S |

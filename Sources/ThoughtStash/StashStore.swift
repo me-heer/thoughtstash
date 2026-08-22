@@ -33,6 +33,7 @@ final class StashStore: ObservableObject {
     var notes: [StashNote] { document.notes }
     var captureShortcut: CaptureShortcut { document.captureShortcut }
     var captureInterval: Double { document.captureInterval }
+    var fontTheme: AppFontTheme { document.fontTheme }
 
     func addNote(
         _ rawText: String,
@@ -125,6 +126,19 @@ final class StashStore: ObservableObject {
         NotificationCenter.default.post(name: .stashShortcutChanged, object: nil)
     }
 
+    func setFontTheme(_ theme: AppFontTheme) {
+        guard theme != document.fontTheme else { return }
+        document.fontTheme = theme
+        save()
+    }
+
+    @discardableResult
+    func cycleFontTheme() -> AppFontTheme {
+        let next = document.fontTheme.next
+        setFontTheme(next)
+        return next
+    }
+
     func setCaptureInterval(_ interval: Double) {
         document.captureInterval = interval
         save()
@@ -170,6 +184,8 @@ extension Notification.Name {
     static let stashFocusSearch = Notification.Name("StashFocusSearch")
     static let stashSelectNext = Notification.Name("StashSelectNext")
     static let stashSelectPrevious = Notification.Name("StashSelectPrevious")
+    static let stashExtendSelectionNext = Notification.Name("StashExtendSelectionNext")
+    static let stashExtendSelectionPrevious = Notification.Name("StashExtendSelectionPrevious")
     static let stashCopySelected = Notification.Name("StashCopySelected")
     static let stashCopySelectedAsList = Notification.Name("StashCopySelectedAsList")
     static let stashToggleDone = Notification.Name("StashToggleDone")
@@ -177,8 +193,10 @@ extension Notification.Name {
     static let stashExpandSelected = Notification.Name("StashExpandSelected")
     static let stashMergeSelected = Notification.Name("StashMergeSelected")
     static let stashMoveToNextSection = Notification.Name("StashMoveToNextSection")
+    static let stashMoveToPreviousSection = Notification.Name("StashMoveToPreviousSection")
     static let stashDeleteSelected = Notification.Name("StashDeleteSelected")
     static let stashDeleteActiveSection = Notification.Name("StashDeleteActiveSection")
     static let stashShowShortcutGuide = Notification.Name("StashShowShortcutGuide")
     static let stashRevealNotesFile = Notification.Name("StashRevealNotesFile")
+    static let stashCycleFont = Notification.Name("StashCycleFont")
 }

@@ -6,6 +6,10 @@ struct ContentView: View {
     @State private var searchText = ""
     @State private var draft = ""
     @State private var selectedIDs = Set<UUID>()
+    /// Keyboard selection is anchored: the cursor is the note the arrows move,
+    /// the anchor is where a ⇧-extended range started.
+    @State private var selectionCursor: UUID?
+    @State private var selectionAnchor: UUID?
     @State private var editorContext: NoteEditorContext?
     @State private var expandedNote: StashNote?
     @State private var isAddingSection = false
@@ -15,6 +19,8 @@ struct ContentView: View {
     @State private var saveTick = 0
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var composerFocusRequest = UUID()
+    @State private var fontToast: AppFontTheme?
+    @State private var fontToastTick = 0
     @FocusState private var isSearchFocused: Bool
 
     private var searchQuery: String {
@@ -44,6 +50,7 @@ struct ContentView: View {
         let lifecycled = withLifecycleNotifications(sheeted)
         let handled = withSelectionNotifications(lifecycled)
         return handled
+            .appFontTheme(store.fontTheme)
             .animation(.snappy(duration: 0.2), value: selectedIDs)
     }
 
@@ -57,6 +64,18 @@ struct ContentView: View {
                 topBar
                 noteList
                 composer
+            }
+        }
+        .overlay(alignment: .top) {
+            if let fontToast {
+                Label("\(fontToast.title) · \(fontToast.faceName)", systemImage: "textformat")
+                    .font(.system(size: 12, weight: .medium))
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 7)
+                    .glassEffect(.regular, in: Capsule())
+                    .padding(.top, 16)
+                    .transition(.opacity.combined(with: .move(edge: .top)))
+                    .allowsHitTesting(false)
             }
         }
         .frame(minWidth: 360, minHeight: 480)
@@ -124,6 +143,9 @@ struct ContentView: View {
             .onReceive(NotificationCenter.default.publisher(for: .stashRevealNotesFile)) { _ in
                 NSWorkspace.shared.activateFileViewerSelecting([store.fileURL])
             }
+            .onReceive(NotificationCenter.default.publisher(for: .stashCycleFont)) { _ in
+                showFontToast(for: store.cycleFontTheme())
+            }
     }
 
     @ViewBuilder
@@ -131,6 +153,8 @@ struct ContentView: View {
         content
             .onReceive(NotificationCenter.default.publisher(for: .stashSelectNext)) { _ in selectRelative(1) }
             .onReceive(NotificationCenter.default.publisher(for: .stashSelectPrevious)) { _ in selectRelative(-1) }
+            .onReceive(NotificationCenter.default.publisher(for: .stashExtendSelectionNext)) { _ in selectRelative(1, extending: true) }
+            .onReceive(NotificationCenter.default.publisher(for: .stashExtendSelectionPrevious)) { _ in selectRelative(-1, extending: true) }
             .onReceive(NotificationCenter.default.publisher(for: .stashCopySelected)) { _ in store.copy(selectedIDs, asList: false) }
             .onReceive(NotificationCenter.default.publisher(for: .stashCopySelectedAsList)) { _ in store.copy(selectedIDs, asList: true) }
             .onReceive(NotificationCenter.default.publisher(for: .stashToggleDone)) { _ in
@@ -139,7 +163,8 @@ struct ContentView: View {
             .onReceive(NotificationCenter.default.publisher(for: .stashEditSelected)) { _ in editPrimarySelection() }
             .onReceive(NotificationCenter.default.publisher(for: .stashExpandSelected)) { _ in expandedNote = primarySelectedNote }
             .onReceive(NotificationCenter.default.publisher(for: .stashMergeSelected)) { _ in mergeSelection() }
-            .onReceive(NotificationCenter.default.publisher(for: .stashMoveToNextSection)) { _ in moveSelectionToNextSection() }
+            .onReceive(NotificationCenter.default.publisher(for: .stashMoveToNextSection)) { _ in moveSelection(bySections: 1) }
+            .onReceive(NotificationCenter.default.publisher(for: .stashMoveToPreviousSection)) { _ in moveSelection(bySections: -1) }
             .onReceive(NotificationCenter.default.publisher(for: .stashDeleteSelected)) { _ in deleteSelection() }
             .onReceive(NotificationCenter.default.publisher(for: .stashDeleteActiveSection)) { _ in
                 withAnimation(.snappy(duration: 0.28)) { store.deleteSection(store.activeSectionID) }
@@ -285,10 +310,10 @@ struct ContentView: View {
                 .padding(.horizontal, 12)
                 .padding(.vertical, 8)
             }
-            .onChange(of: primarySelectedNote?.id) { _, selectedID in
-                guard let selectedID else { return }
+            .onChange(of: selectionCursor) { _, cursor in
+                guard let cursor else { return }
                 withAnimation(.easeOut(duration: 0.16)) {
-                    proxy.scrollTo(selectedID, anchor: .center)
+                    proxy.scrollTo(cursor, anchor: .center)
                 }
             }
         }
@@ -313,10 +338,11 @@ struct ContentView: View {
                     ComposerMarkdownEditor(
                         text: $draft,
                         focusRequest: composerFocusRequest,
+                        fontTheme: store.fontTheme,
                         onFocusChange: { focused in
                             isComposerFocused = focused
                             // Only one surface carries the accent outline at a time.
-                            if focused { selectedIDs.removeAll() }
+                            if focused { clearSelection() }
                         },
                         onSubmit: addDraft
                     )
@@ -414,27 +440,42 @@ struct ContentView: View {
 
     private func toggleSelection(_ id: UUID) {
         leaveTextInput()
-        if selectedIDs.contains(id) { selectedIDs.remove(id) }
-        else { selectedIDs.insert(id) }
+        if selectedIDs.contains(id) {
+            selectedIDs.remove(id)
+        } else {
+            selectedIDs.insert(id)
+        }
+        // A click re-anchors the keyboard selection wherever the pointer landed.
+        selectionCursor = selectedIDs.contains(id) ? id : nil
+        selectionAnchor = selectionCursor
+    }
+
+    private func clearSelection() {
+        selectedIDs.removeAll()
+        selectionCursor = nil
+        selectionAnchor = nil
     }
 
     private var primarySelectedNote: StashNote? {
         orderedVisibleNotes.first { selectedIDs.contains($0.id) }
     }
 
-    private func selectRelative(_ offset: Int) {
-        guard !orderedVisibleNotes.isEmpty else { return }
-        leaveTextInput()
-        let currentIndex = primarySelectedNote.flatMap { current in
-            orderedVisibleNotes.firstIndex(where: { $0.id == current.id })
+    /// Moves the selection cursor by `offset`, extending the range from the anchor
+    /// when asked. The rules themselves live in `NoteSelection` so they can be tested.
+    private func selectRelative(_ offset: Int, extending: Bool = false) {
+        let visible = orderedVisibleNotes.map(\.id)
+        let state = NoteSelectionState(selected: selectedIDs, cursor: selectionCursor, anchor: selectionAnchor)
+
+        switch NoteSelection.moving(state, by: offset, extending: extending, in: visible) {
+        case .focusComposer:
+            clearSelection()
+            requestComposerFocus()
+        case .selection(let next):
+            leaveTextInput()
+            selectedIDs = next.selected
+            selectionCursor = next.cursor
+            selectionAnchor = next.anchor
         }
-        let nextIndex: Int
-        if let currentIndex {
-            nextIndex = min(max(currentIndex + offset, 0), orderedVisibleNotes.count - 1)
-        } else {
-            nextIndex = offset < 0 ? orderedVisibleNotes.count - 1 : 0
-        }
-        selectedIDs = [orderedVisibleNotes[nextIndex].id]
     }
 
     private func leaveTextInput() {
@@ -456,20 +497,32 @@ struct ContentView: View {
         }
     }
 
-    private func moveSelectionToNextSection() {
+    private func moveSelection(bySections offset: Int) {
         guard !selectedIDs.isEmpty,
               let currentSectionID = primarySelectedNote?.sectionID,
               let currentIndex = store.sections.firstIndex(where: { $0.id == currentSectionID }) else { return }
-        let next = store.sections[(currentIndex + 1) % store.sections.count]
+        let count = store.sections.count
+        let destination = store.sections[((currentIndex + offset) % count + count) % count]
         withAnimation(.snappy(duration: 0.28)) {
-            store.move(selectedIDs, to: next.id)
+            store.move(selectedIDs, to: destination.id)
         }
     }
 
     private func deleteSelection() {
         withAnimation(.snappy(duration: 0.28)) {
             store.delete(selectedIDs)
-            selectedIDs.removeAll()
+            clearSelection()
+        }
+    }
+
+    /// The switch is silent otherwise — a chip names the face that just took over.
+    private func showFontToast(for theme: AppFontTheme) {
+        fontToastTick += 1
+        let tick = fontToastTick
+        withAnimation(.easeOut(duration: 0.18)) { fontToast = theme }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
+            guard fontToastTick == tick else { return }
+            withAnimation(.easeOut(duration: 0.25)) { fontToast = nil }
         }
     }
 
@@ -602,6 +655,18 @@ struct SettingsView: View {
                 }
             }
 
+            Picker("Font", selection: Binding(
+                get: { store.fontTheme },
+                set: { store.setFontTheme($0) }
+            )) {
+                ForEach(AppFontTheme.allCases) { theme in
+                    Text(theme.title)
+                        .fontDesign(theme.design)
+                        .tag(theme)
+                }
+            }
+            .pickerStyle(.segmented)
+
             VStack(alignment: .leading) {
                 HStack {
                     Text("Double-tap speed")
@@ -627,8 +692,9 @@ struct SettingsView: View {
             }
         }
         .formStyle(.grouped)
+        .appFontTheme(store.fontTheme)
         .padding()
-        .frame(width: 480, height: 300)
+        .frame(width: 480, height: 340)
     }
 }
 
