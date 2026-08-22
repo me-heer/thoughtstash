@@ -29,6 +29,7 @@ final class CopperStore: ObservableObject {
     }
 
     var sections: [CopperSection] { document.sections }
+    var inboxSection: CopperSection? { document.sections.first }
     var notes: [CopperNote] { document.notes }
     var captureShortcut: CaptureShortcut { document.captureShortcut }
     var captureInterval: Double { document.captureInterval }
@@ -65,7 +66,10 @@ final class CopperStore: ObservableObject {
         guard !cleaned.isEmpty else { return }
         document.notes[index].text = cleaned
         document.notes[index].richTextRTF = nil
-        if let title { document.notes[index].title = title.trimmingCharacters(in: .whitespacesAndNewlines) }
+        if let title {
+            let trimmedTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
+            document.notes[index].title = trimmedTitle.isEmpty ? nil : trimmedTitle
+        }
         if let kind { document.notes[index].kind = kind }
         if let sectionID { document.notes[index].sectionID = sectionID }
         save()
@@ -188,4 +192,5 @@ extension Notification.Name {
     static let copperDeleteSelected = Notification.Name("CopperDeleteSelected")
     static let copperDeleteActiveSection = Notification.Name("CopperDeleteActiveSection")
     static let copperShowShortcutGuide = Notification.Name("CopperShowShortcutGuide")
+    static let copperRevealNotesFile = Notification.Name("CopperRevealNotesFile")
 }

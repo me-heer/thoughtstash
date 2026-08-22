@@ -167,7 +167,7 @@ final class CaptureService {
             excluding: marker,
             snapshot: snapshot,
             fallbackText: fallbackText,
-            attemptsRemaining: 10
+            attemptsRemaining: 6
         )
     }
 
@@ -178,7 +178,7 @@ final class CaptureService {
         fallbackText: String?,
         attemptsRemaining: Int
     ) {
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.04) { [weak self] in
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.02) { [weak self] in
             guard let self else { return }
             if let content = RichTextCodec.capturedContent(from: pasteboard, excluding: marker) {
                 snapshot.restore(to: pasteboard)
@@ -219,8 +219,15 @@ final class CaptureService {
 
     private func showToast() {
         toastWindow?.close()
+        let hostingView = NSHostingView(rootView: CaptureToast())
+        let fittingSize = hostingView.fittingSize
         let mouse = NSEvent.mouseLocation
-        let restingFrame = NSRect(x: mouse.x + 14, y: mouse.y - 46, width: 106, height: 36)
+        let restingFrame = NSRect(
+            x: mouse.x + 14,
+            y: mouse.y - 10 - fittingSize.height,
+            width: fittingSize.width,
+            height: fittingSize.height
+        )
         let panel = NSPanel(
             contentRect: restingFrame,
             styleMask: [.borderless, .nonactivatingPanel],
@@ -231,7 +238,7 @@ final class CaptureService {
         panel.isOpaque = false
         panel.backgroundColor = .clear
         panel.hasShadow = true
-        panel.contentView = NSHostingView(rootView: CaptureToast())
+        panel.contentView = hostingView
         panel.alphaValue = 0
         panel.setFrame(restingFrame.insetBy(dx: 4, dy: -2), display: false)
         panel.orderFrontRegardless()

@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 enum ShortcutGroup: String, CaseIterable, Identifiable {
@@ -188,6 +189,7 @@ enum ShortcutMap {
             slug: "revealNotesFile",
             "Reveal Notes File",
             key: "r", modifiers: [.command, .shift],
+            notification: .copperRevealNotesFile,
             group: .app
         ),
         ShortcutEntry(
@@ -202,6 +204,12 @@ enum ShortcutMap {
             "Settings…",
             key: ",", modifiers: [.command],
             group: .app
+        ),
+        ShortcutEntry(
+            slug: "toggleEditorSize",
+            "Expand/Collapse Editor",
+            key: .return, modifiers: [.command, .shift],
+            group: .editing
         ),
         ShortcutEntry(
             slug: "saveEditor",
@@ -227,5 +235,26 @@ enum ShortcutMap {
 
     static func display(for notification: Notification.Name) -> String? {
         entry(for: notification)?.displayString
+    }
+
+    /// Matches a raw key-down event against the notification-backed entries, so a local
+    /// `NSEvent` monitor can dispatch shortcuts deterministically instead of relying on
+    /// AppKit menu key-equivalents (which can lose a race with a focused text field).
+    static func matchingEntry(for event: NSEvent) -> ShortcutEntry? {
+        guard let char = event.charactersIgnoringModifiers?.lowercased().first else { return nil }
+        let modifiers = eventModifiers(from: event.modifierFlags)
+        return all.first { entry in
+            guard entry.notification != nil, let key = entry.keyEquivalent else { return false }
+            return entry.modifiers == modifiers && String(key.character).lowercased().first == char
+        }
+    }
+
+    private static func eventModifiers(from flags: NSEvent.ModifierFlags) -> EventModifiers {
+        var modifiers: EventModifiers = []
+        if flags.contains(.command) { modifiers.insert(.command) }
+        if flags.contains(.shift) { modifiers.insert(.shift) }
+        if flags.contains(.option) { modifiers.insert(.option) }
+        if flags.contains(.control) { modifiers.insert(.control) }
+        return modifiers
     }
 }

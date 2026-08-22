@@ -8,15 +8,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private var panelController: CopperPanelController!
     private var captureService: CaptureService!
+    private var notesKeyMonitor: NotesKeyMonitor!
     private var statusItem: NSStatusItem!
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
         panelController = CopperPanelController(store: Self.store)
         captureService = CaptureService(store: Self.store) { [weak self] in
-            self?.panelController.show()
+            self?.panelController.show(animated: false)
         }
         captureService.start()
+        notesKeyMonitor = NotesKeyMonitor(targetWindow: panelController.window)
+        notesKeyMonitor.start()
         configureStatusItem()
         panelController.show()
     }
@@ -95,7 +98,7 @@ final class CopperPanelController: NSWindowController, NSWindowDelegate {
 
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
 
-    func show() {
+    func show(animated: Bool = true) {
         guard let panel = window else { return }
         guard !panel.isVisible else {
             panel.makeKeyAndOrderFront(nil)
@@ -109,6 +112,16 @@ final class CopperPanelController: NSWindowController, NSWindowDelegate {
                 x: frame.maxX - panel.frame.width - 18,
                 y: frame.midY - panel.frame.height / 2
             ))
+        }
+
+        guard animated else {
+            panel.alphaValue = 1
+            NSApp.unhide(nil)
+            panel.makeKeyAndOrderFront(nil)
+            panel.orderFrontRegardless()
+            NSApp.activate(ignoringOtherApps: true)
+            NotificationCenter.default.post(name: .copperFocusComposer, object: nil)
+            return
         }
 
         let restingFrame = panel.frame

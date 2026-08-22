@@ -40,27 +40,21 @@ private struct CopperCommands: Commands {
             command(.copperDeleteSelected)
             command(.copperDeleteActiveSection)
             Divider()
-            slugCommand("revealNotesFile") {
-                NSWorkspace.shared.activateFileViewerSelecting([AppDelegate.store.fileURL])
-            }
+            command(.copperRevealNotesFile)
             Divider()
             command(.copperShowShortcutGuide)
         }
     }
 
+    // Deliberately has no `.keyboardShortcut`: the actual key handling is owned by
+    // NotesKeyMonitor, which reads the same ShortcutMap entries. That avoids a race
+    // between AppKit menu key-equivalents and a focused text field's own key bindings
+    // (e.g. ⌘Delete/⌘↑/⌘↓ in a multi-line TextField). These buttons stay clickable
+    // from the Notes menu for discoverability and mouse use.
     @ViewBuilder
     private func command(_ notification: Notification.Name) -> some View {
-        if let entry = ShortcutMap.entry(for: notification), let key = entry.keyEquivalent {
+        if let entry = ShortcutMap.entry(for: notification) {
             Button(entry.title) { NotificationCenter.default.post(name: notification, object: nil) }
-                .keyboardShortcut(key, modifiers: entry.modifiers)
-        }
-    }
-
-    @ViewBuilder
-    private func slugCommand(_ slug: String, action: @escaping () -> Void) -> some View {
-        if let entry = ShortcutMap.entry(slug: slug), let key = entry.keyEquivalent {
-            Button(entry.title, action: action)
-                .keyboardShortcut(key, modifiers: entry.modifiers)
         }
     }
 }

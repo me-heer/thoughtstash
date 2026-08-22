@@ -7,13 +7,12 @@ struct ContentView: View {
     @State private var draft = ""
     @State private var showsMarkdownPreview = false
     @State private var selectedIDs = Set<UUID>()
-    @State private var editingNote: CopperNote?
+    @State private var editorContext: NoteEditorContext?
     @State private var expandedNote: CopperNote?
     @State private var isAddingSection = false
-    @State private var longformContext: LongformEditorContext?
     @State private var isShowingShortcutGuide = false
     @State private var collapsedSections = Set<UUID>()
-    @Namespace private var noteNamespace
+    @State private var composerSectionOverride: UUID?
     @FocusState private var isComposerFocused: Bool
     @FocusState private var isSearchFocused: Bool
 
@@ -29,6 +28,14 @@ struct ContentView: View {
         store.sections.flatMap { section in
             filteredNotes.filter { $0.sectionID == section.id }
         }
+    }
+
+    private var defaultSectionID: UUID {
+        store.inboxSection?.id ?? store.activeSectionID
+    }
+
+    private var composerTargetSectionID: UUID {
+        composerSectionOverride ?? defaultSectionID
     }
 
     var body: some View {
@@ -65,9 +72,34 @@ struct ContentView: View {
     @ViewBuilder
     private func withSheets(_ content: some View) -> some View {
         content
-            .sheet(item: $editingNote) { note in
-                NoteEditor(note: note, title: "Edit Note") { text in
-                    store.updateNote(id: note.id, text: text)
+            .sheet(item: $editorContext) { context in
+                NoteEditor(
+                    note: context.note,
+                    sections: store.sections,
+                    initialSectionID: defaultSectionID,
+                    startExpanded: context.startExpanded
+                ) { title, markdown, sectionID in
+                    let kind: NoteKind = title.isEmpty ? .quick : .longform
+                    if let note = context.note {
+                        withAnimation(.snappy(duration: 0.2)) {
+                            store.updateNote(
+                                id: note.id,
+                                text: markdown,
+                                title: title,
+                                kind: kind,
+                                sectionID: sectionID
+                            )
+                        }
+                    } else {
+                        withAnimation(.snappy(duration: 0.28)) {
+                            store.addNote(
+                                markdown,
+                                sectionID: sectionID,
+                                title: title.isEmpty ? nil : title,
+                                kind: kind
+                            )
+                        }
+                    }
                 }
             }
             .sheet(item: $expandedNote) { note in
@@ -75,30 +107,6 @@ struct ContentView: View {
             }
             .sheet(isPresented: $isAddingSection) {
                 NewSectionView { store.addSection(named: $0) }
-            }
-            .sheet(item: $longformContext) { context in
-                LongformEditor(
-                    note: context.note,
-                    sections: store.sections,
-                    initialSectionID: store.activeSectionID
-                ) { title, markdown, sectionID in
-                    if let note = context.note {
-                        store.updateNote(
-                            id: note.id,
-                            text: markdown,
-                            title: title,
-                            kind: .longform,
-                            sectionID: sectionID
-                        )
-                    } else {
-                        store.addNote(
-                            markdown,
-                            sectionID: sectionID,
-                            title: title,
-                            kind: .longform
-                        )
-                    }
-                }
             }
             .sheet(isPresented: $isShowingShortcutGuide) {
                 ShortcutGuideView()
@@ -115,7 +123,7 @@ struct ContentView: View {
                 DispatchQueue.main.async { isComposerFocused = true }
             }
             .onReceive(NotificationCenter.default.publisher(for: .copperNewLongform)) { _ in
-                longformContext = LongformEditorContext(note: nil)
+                editorContext = NoteEditorContext(note: nil, startExpanded: true)
             }
             .onReceive(NotificationCenter.default.publisher(for: .copperNewSection)) { _ in
                 isAddingSection = true
@@ -125,6 +133,9 @@ struct ContentView: View {
             }
             .onReceive(NotificationCenter.default.publisher(for: .copperShowShortcutGuide)) { _ in
                 isShowingShortcutGuide = true
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .copperRevealNotesFile)) { _ in
+                NSWorkspace.shared.activateFileViewerSelecting([store.fileURL])
             }
     }
 
@@ -164,7 +175,7 @@ struct ContentView: View {
 
             Menu {
                 Button("New Longform Note…", systemImage: "doc.richtext") {
-                    longformContext = LongformEditorContext(note: nil)
+                    editorContext = NoteEditorContext(note: nil, startExpanded: true)
                 }
                 Button("New Section…", systemImage: "folder.badge.plus") {
                     isAddingSection = true
@@ -203,30 +214,29 @@ struct ContentView: View {
                     if !sectionNotes.isEmpty || searchText.isEmpty {
                         Section {
                             if !isCollapsed {
-                                if sectionNotes.isEmpty {
-                                    VStack(spacing: 6) {
+                                Group {
+                                    if sectionNotes.isEmpty {
                                         Text("No notes yet")
                                             .font(.callout)
                                             .foregroundStyle(.tertiary)
-                                        ShortcutHint(notification: .copperFocusComposer, label: "Add one")
-                                    }
-                                    .frame(maxWidth: .infinity, alignment: .center)
-                                    .padding(.vertical, 16)
-                                } else {
-                                    ForEach(sectionNotes) { note in
-                                        NoteRow(
-                                            note: note,
-                                            isSelected: selectedIDs.contains(note.id),
-                                            onSelect: { toggleSelection(note.id) }
-                                        )
-                                        .matchedGeometryEffect(id: note.id, in: noteNamespace)
-                                        .transition(.asymmetric(
-                                            insertion: .scale(scale: 0.92).combined(with: .opacity),
-                                            removal: .opacity
-                                        ))
-                                        .contextMenu { contextMenu(for: note) }
+                                            .frame(maxWidth: .infinity, alignment: .center)
+                                            .padding(.vertical, 16)
+                                    } else {
+                                        ForEach(sectionNotes) { note in
+                                            NoteRow(
+                                                note: note,
+                                                isSelected: selectedIDs.contains(note.id),
+                                                onSelect: { toggleSelection(note.id) }
+                                            )
+                                            .transition(.asymmetric(
+                                                insertion: .scale(scale: 0.92).combined(with: .opacity),
+                                                removal: .opacity
+                                            ))
+                                            .contextMenu { contextMenu(for: note) }
+                                        }
                                     }
                                 }
+                                .transition(.move(edge: .top).combined(with: .opacity))
                             }
                         } header: {
                             HStack {
@@ -299,11 +309,11 @@ struct ContentView: View {
             HStack(alignment: .bottom, spacing: 10) {
                 Menu {
                     ForEach(store.sections) { section in
-                        Button(section.name) { store.activeSectionID = section.id }
+                        Button(section.name) { composerSectionOverride = section.id }
                     }
                 } label: {
-                    Image(systemName: "circle")
-                        .foregroundStyle(.secondary)
+                    Image(systemName: composerSectionOverride == nil ? "circle" : "circle.fill")
+                        .foregroundStyle(composerSectionOverride == nil ? .secondary : Color.accentColor)
                         .frame(width: 24, height: 24)
                 }
                 .menuStyle(.borderlessButton)
@@ -324,9 +334,6 @@ struct ContentView: View {
                     .foregroundStyle(.tint)
                     .hoverGlow(radius: 10)
                     .transition(.scale.combined(with: .opacity))
-                } else if !isComposerFocused {
-                    ShortcutHint(notification: .copperFocusComposer)
-                        .transition(.opacity)
                 }
             }
         }
@@ -359,8 +366,7 @@ struct ContentView: View {
             expandedNote = note
         }
         Button("Edit", systemImage: "pencil") {
-            if note.isLongform { longformContext = LongformEditorContext(note: note) }
-            else { editingNote = note }
+            editorContext = NoteEditorContext(note: note, startExpanded: note.isLongform)
         }
         if ids.count > 1 {
             Button("Merge Notes", systemImage: "arrow.triangle.merge") {
@@ -414,8 +420,7 @@ struct ContentView: View {
 
     private func editPrimarySelection() {
         guard let note = primarySelectedNote else { return }
-        if note.isLongform { longformContext = LongformEditorContext(note: note) }
-        else { editingNote = note }
+        editorContext = NoteEditorContext(note: note, startExpanded: note.isLongform)
     }
 
     private func mergeSelection() {
@@ -447,10 +452,12 @@ struct ContentView: View {
     }
 
     private func addDraft() {
+        let target = composerTargetSectionID
         withAnimation(.snappy(duration: 0.28)) {
-            store.addNote(draft)
+            store.addNote(draft, sectionID: target)
         }
         draft = ""
+        composerSectionOverride = nil
     }
 }
 
@@ -458,7 +465,6 @@ private struct NoteRow: View {
     let note: CopperNote
     let isSelected: Bool
     let onSelect: () -> Void
-    @State private var isHovering = false
 
     var body: some View {
         Button(action: onSelect) {
@@ -480,14 +486,6 @@ private struct NoteRow: View {
                         .multilineTextAlignment(.leading)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
-
-                if isHovering || isSelected {
-                    VStack(alignment: .trailing, spacing: 4) {
-                        ShortcutHint(notification: .copperEditSelected)
-                        ShortcutHint(notification: .copperToggleDone)
-                    }
-                    .transition(.opacity)
-                }
             }
             .padding(13)
             .glassEffect(Glass.regular.interactive(), in: RoundedRectangle(cornerRadius: 12))
@@ -496,66 +494,9 @@ private struct NoteRow: View {
                     .stroke(isSelected ? Color.accentColor : .clear, lineWidth: 1.75)
             }
             .animation(.easeOut(duration: 0.15), value: isSelected)
-            .animation(.easeOut(duration: 0.15), value: isHovering)
             .contentShape(RoundedRectangle(cornerRadius: 12))
         }
         .buttonStyle(.plain)
-        .onHover { isHovering = $0 }
-    }
-}
-
-private struct NoteEditor: View {
-    @Environment(\.dismiss) private var dismiss
-    let note: CopperNote
-    let title: String
-    let onSave: (String) -> Void
-    @State private var text: String
-
-    init(note: CopperNote, title: String, onSave: @escaping (String) -> Void) {
-        self.note = note
-        self.title = title
-        self.onSave = onSave
-        _text = State(initialValue: note.text)
-    }
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            Text(title).font(.headline)
-            TextEditor(text: $text)
-                .font(.body)
-                .scrollContentBackground(.hidden)
-                .padding(8)
-                .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 8))
-            if !text.isEmpty {
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("PREVIEW")
-                        .font(.caption.weight(.semibold))
-                        .tracking(1)
-                        .foregroundStyle(.secondary)
-                    ScrollView {
-                        MarkdownPreview(markdown: text, compact: true)
-                            .padding(8)
-                    }
-                }
-                .frame(maxHeight: 130)
-                .transition(.opacity)
-            }
-            HStack {
-                Spacer()
-                Button("Cancel") { dismiss() }
-                    .keyboardShortcut(.cancelAction)
-                    .buttonStyle(.glass)
-                Button("Save") {
-                    onSave(text)
-                    dismiss()
-                }
-                .buttonStyle(.glassProminent)
-                .keyboardShortcut(.defaultAction)
-            }
-        }
-        .padding(20)
-        .frame(width: 480, height: 340)
-        .animation(.easeOut(duration: 0.18), value: text.isEmpty)
     }
 }
 
@@ -587,11 +528,6 @@ private struct ExpandedNote: View {
         .padding(24)
         .frame(width: 560, height: 440)
     }
-}
-
-private struct LongformEditorContext: Identifiable {
-    let id = UUID()
-    let note: CopperNote?
 }
 
 private struct RichNoteText: View {
