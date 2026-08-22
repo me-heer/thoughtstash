@@ -187,4 +187,5 @@ extension Notification.Name {
     static let copperMoveToNextSection = Notification.Name("CopperMoveToNextSection")
     static let copperDeleteSelected = Notification.Name("CopperDeleteSelected")
     static let copperDeleteActiveSection = Notification.Name("CopperDeleteActiveSection")
+    static let copperShowShortcutGuide = Notification.Name("CopperShowShortcutGuide")
 }

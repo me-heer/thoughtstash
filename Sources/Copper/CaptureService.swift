@@ -1,5 +1,6 @@
 import AppKit
 import ApplicationServices
+import QuartzCore
 import SwiftUI
 
 @MainActor
@@ -219,8 +220,9 @@ final class CaptureService {
     private func showToast() {
         toastWindow?.close()
         let mouse = NSEvent.mouseLocation
+        let restingFrame = NSRect(x: mouse.x + 14, y: mouse.y - 46, width: 106, height: 36)
         let panel = NSPanel(
-            contentRect: NSRect(x: mouse.x + 14, y: mouse.y - 46, width: 106, height: 36),
+            contentRect: restingFrame,
             styleMask: [.borderless, .nonactivatingPanel],
             backing: .buffered,
             defer: false
@@ -230,14 +232,29 @@ final class CaptureService {
         panel.backgroundColor = .clear
         panel.hasShadow = true
         panel.contentView = NSHostingView(rootView: CaptureToast())
+        panel.alphaValue = 0
+        panel.setFrame(restingFrame.insetBy(dx: 4, dy: -2), display: false)
         panel.orderFrontRegardless()
         toastWindow = panel
 
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = 0.12
+            context.timingFunction = CAMediaTimingFunction(name: .easeOut)
+            panel.animator().alphaValue = 1
+            panel.animator().setFrame(restingFrame, display: true)
+        }
+
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.1) { [weak self, weak panel] in
-            panel?.animator().alphaValue = 0
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-                panel?.close()
-                if self?.toastWindow === panel { self?.toastWindow = nil }
+            guard let panel else { return }
+            NSAnimationContext.runAnimationGroup { context in
+                context.duration = 0.18
+                context.timingFunction = CAMediaTimingFunction(name: .easeIn)
+                panel.animator().alphaValue = 0
+            } completionHandler: {
+                Task { @MainActor in
+                    panel.close()
+                    if self?.toastWindow === panel { self?.toastWindow = nil }
+                }
             }
         }
     }

@@ -43,8 +43,9 @@ struct LongformEditor: View {
                 .labelsHidden()
                 Button("Cancel") { dismiss() }
                     .keyboardShortcut(.cancelAction)
+                    .buttonStyle(.glass)
                 Button("Save") { save() }
-                    .buttonStyle(.borderedProminent)
+                    .buttonStyle(.glassProminent)
                     .keyboardShortcut("s", modifiers: .command)
                     .disabled(markdown.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             }
@@ -63,7 +64,7 @@ struct LongformEditor: View {
                         .focused($focusedField, equals: .body)
                         .scrollContentBackground(.hidden)
                         .padding(8)
-                        .background(.quaternary.opacity(0.28), in: RoundedRectangle(cornerRadius: 10))
+                        .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 10))
                 }
                 .padding(16)
                 .frame(minWidth: 330)
@@ -78,7 +79,7 @@ struct LongformEditor: View {
                             .textSelection(.enabled)
                             .padding(12)
                     }
-                    .background(.background.opacity(0.72), in: RoundedRectangle(cornerRadius: 10))
+                    .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 10))
                 }
                 .padding(16)
                 .frame(minWidth: 330)

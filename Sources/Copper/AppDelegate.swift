@@ -1,4 +1,5 @@
 import AppKit
+import QuartzCore
 import SwiftUI
 
 @MainActor
@@ -96,32 +97,68 @@ final class CopperPanelController: NSWindowController, NSWindowDelegate {
 
     func show() {
         guard let panel = window else { return }
-        if !panel.isVisible, let screen = NSScreen.main {
+        guard !panel.isVisible else {
+            panel.makeKeyAndOrderFront(nil)
+            NSApp.activate(ignoringOtherApps: true)
+            return
+        }
+
+        if let screen = NSScreen.main {
             let frame = screen.visibleFrame
             panel.setFrameOrigin(NSPoint(
                 x: frame.maxX - panel.frame.width - 18,
                 y: frame.midY - panel.frame.height / 2
             ))
         }
+
+        let restingFrame = panel.frame
+        let startFrame = restingFrame.offsetBy(dx: 0, dy: -8)
+        panel.alphaValue = 0
+        panel.setFrame(startFrame, display: false)
+
         NSApp.unhide(nil)
         panel.makeKeyAndOrderFront(nil)
         panel.orderFrontRegardless()
         NSApp.activate(ignoringOtherApps: true)
+
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = 0.22
+            context.timingFunction = CAMediaTimingFunction(name: .easeOut)
+            panel.animator().alphaValue = 1
+            panel.animator().setFrame(restingFrame, display: true)
+        }
+
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
             NotificationCenter.default.post(name: .copperFocusComposer, object: nil)
         }
     }
 
+    func hide(completion: (() -> Void)? = nil) {
+        guard let panel = window, panel.isVisible else {
+            completion?()
+            return
+        }
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = 0.18
+            context.timingFunction = CAMediaTimingFunction(name: .easeIn)
+            panel.animator().alphaValue = 0
+        } completionHandler: {
+            panel.orderOut(nil)
+            panel.alphaValue = 1
+            completion?()
+        }
+    }
+
     func toggle() {
         if window?.isVisible == true {
-            window?.orderOut(nil)
+            hide()
         } else {
             show()
         }
     }
 
     func windowShouldClose(_ sender: NSWindow) -> Bool {
-        sender.orderOut(nil)
+        hide()
         return false
     }
 }

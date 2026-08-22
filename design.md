@@ -9,17 +9,18 @@
 
 ## Visual direction
 
-The reference at `https://shadcn.com/copper.mp4` uses a compact, approximately 390-point-wide floating panel:
+Copper targets macOS 26+ and uses Apple's native Liquid Glass material (`.glassEffect()`, `GlassEffectContainer`) throughout rather than a hand-rolled translucency layer. The compact, approximately 390-point-wide floating panel:
 
-- translucent light-gray material with soft window shadow
-- rounded search field and circular overflow control
-- small uppercase, tracked section labels followed by hairline dividers
-- warm-white raised note cards with subtle depth
-- hollow status circles and a vivid blue outline for selected cards
-- a white rounded composer anchored at the bottom, outlined blue while focused
-- restrained typography and spacing; hierarchy comes from surfaces, weight, and alignment rather than decoration
+- true glass material background and controls, with pointer-reactive (`interactive`) glass on note cards, the composer, and top-bar controls
+- rounded glass search field and circular glass overflow control, tinted while focused
+- small uppercase, tracked, collapsible section labels followed by hairline dividers
+- glass note cards with hover glow and a vivid accent-color outline for selected cards
+- a glass rounded composer anchored at the bottom, outlined with the accent color while focused, whose Markdown preview animates open/closed as it detects Markdown
+- fluid motion throughout: animated panel show/hide (fade + slide), animated note insertion/removal/reordering, animated section collapse, and a bouncy checkmark toggle
+- an in-app keyboard shortcut guide (`⌘/`, or via the overflow menu) and ambient shortcut hints (composer, empty states, note rows on hover/selection) keep the keyboard-first workflow discoverable without adding permanent chrome
+- restrained typography and spacing; hierarchy comes from glass surfaces, motion, and alignment rather than decoration
 
-Longform editing intentionally expands beyond the compact panel. It uses a split Markdown source and live preview so writing and rendered structure remain visible together.
+Longform editing intentionally expands beyond the compact panel. It uses a split Markdown source and live preview, both rendered in glass panes, so writing and rendered structure remain visible together.
 
 ## Content model
 
@@ -74,8 +75,9 @@ Secure Input can intentionally prevent macOS from exposing global keyboard event
 | Save an editor | ⌘S or Return where appropriate |
 | Cancel a dialog/editor | Escape |
 | Reveal local notes file | ⇧⌘R |
+| Show keyboard shortcut guide | ⌘/ |
 
-Commands are also listed in the macOS **Notes** menu so shortcuts remain discoverable.
+Commands are also listed in the macOS **Notes** menu, and the in-app keyboard shortcut guide (`⌘/`, or via the overflow menu), so shortcuts remain discoverable. All three read from a single `ShortcutMap` source of truth so they cannot drift out of sync.
 
 ## Iteration checklist
 
@@ -84,3 +86,5 @@ Commands are also listed in the macOS **Notes** menu so shortcuts remain discove
 - Maintain visible focus and selection states for keyboard navigation.
 - Prefer direct manipulation in the panel; reserve large sheets for longform writing.
 - Test global capture after signing/installing because macOS permissions attach to the app's code identity.
+- Copper requires macOS 26+ for Liquid Glass; there is no fallback path for older systems.
+- Ambient shortcut hints must stay hover/state-conditional — never occupy permanent layout space, since the panel must stay usable at 360 points wide.

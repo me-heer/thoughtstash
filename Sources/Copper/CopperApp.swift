@@ -18,42 +18,49 @@ struct CopperApp: App {
 private struct CopperCommands: Commands {
     var body: some Commands {
         CommandGroup(replacing: .newItem) {
-            command("New Quick Note", notification: .copperFocusComposer, key: "n")
-            command("New Longform Note…", notification: .copperNewLongform, key: "n", modifiers: [.command, .shift])
-            command("New Section…", notification: .copperNewSection, key: "n", modifiers: [.command, .option])
+            command(.copperFocusComposer)
+            command(.copperNewLongform)
+            command(.copperNewSection)
         }
 
         CommandMenu("Notes") {
-            command("Find", notification: .copperFocusSearch, key: "f")
+            command(.copperFocusSearch)
             Divider()
-            command("Select Previous Note", notification: .copperSelectPrevious, key: .upArrow)
-            command("Select Next Note", notification: .copperSelectNext, key: .downArrow)
+            command(.copperSelectPrevious)
+            command(.copperSelectNext)
             Divider()
-            command("Copy Selected Notes", notification: .copperCopySelected, key: "c", modifiers: [.command, .option])
-            command("Copy Selected as List", notification: .copperCopySelectedAsList, key: "c", modifiers: [.command, .shift])
-            command("Mark Selected Done", notification: .copperToggleDone, key: "d")
-            command("Edit Selected Note", notification: .copperEditSelected, key: "e")
-            command("Expand Selected Note", notification: .copperExpandSelected, key: .return, modifiers: [.command, .option])
-            command("Merge Selected Notes", notification: .copperMergeSelected, key: "m", modifiers: [.command, .shift])
-            command("Move to Next Section", notification: .copperMoveToNextSection, key: .rightArrow, modifiers: [.command, .option])
+            command(.copperCopySelected)
+            command(.copperCopySelectedAsList)
+            command(.copperToggleDone)
+            command(.copperEditSelected)
+            command(.copperExpandSelected)
+            command(.copperMergeSelected)
+            command(.copperMoveToNextSection)
             Divider()
-            command("Delete Selected Notes", notification: .copperDeleteSelected, key: .delete, modifiers: [.command])
-            command("Delete Active Section", notification: .copperDeleteActiveSection, key: .delete, modifiers: [.command, .option])
+            command(.copperDeleteSelected)
+            command(.copperDeleteActiveSection)
             Divider()
-            Button("Reveal Notes File") {
+            slugCommand("revealNotesFile") {
                 NSWorkspace.shared.activateFileViewerSelecting([AppDelegate.store.fileURL])
             }
-            .keyboardShortcut("r", modifiers: [.command, .shift])
+            Divider()
+            command(.copperShowShortcutGuide)
         }
     }
 
-    private func command(
-        _ title: String,
-        notification: Notification.Name,
-        key: KeyEquivalent,
-        modifiers: EventModifiers = .command
-    ) -> some View {
-        Button(title) { NotificationCenter.default.post(name: notification, object: nil) }
-            .keyboardShortcut(key, modifiers: modifiers)
+    @ViewBuilder
+    private func command(_ notification: Notification.Name) -> some View {
+        if let entry = ShortcutMap.entry(for: notification), let key = entry.keyEquivalent {
+            Button(entry.title) { NotificationCenter.default.post(name: notification, object: nil) }
+                .keyboardShortcut(key, modifiers: entry.modifiers)
+        }
+    }
+
+    @ViewBuilder
+    private func slugCommand(_ slug: String, action: @escaping () -> Void) -> some View {
+        if let entry = ShortcutMap.entry(slug: slug), let key = entry.keyEquivalent {
+            Button(entry.title, action: action)
+                .keyboardShortcut(key, modifiers: entry.modifiers)
+        }
     }
 }
