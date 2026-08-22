@@ -5,8 +5,8 @@
 <h1 align="center">Thought Stash</h1>
 
 <p align="center">
-  A local-only, native macOS scratchpad for AI-assisted work.<br>
-  Select text in any app, double-tap Shift, and it's saved.
+  A local-only, native macOS scratchpad for times when you want to jot things down quickly.<br>
+  Select text in any app, double-tap Shift, and it's saved. Heavily inspired by shadcn's Copper.
 </p>
 
 <p align="center">
@@ -15,8 +15,9 @@
   <img src="docs/empty-state.png" width="330" alt="The empty panel showing the wordmark and capture hint">
 </p>
 
-Inspired by [Copper by shadcn](https://shadcn.com/copper), which does the same job with the
-same double-Shift gesture. This is an independent native implementation, not a fork or a port.
+Inspired by [Copper by shadcn](https://shadcn.com/copper), which does the same job. 
+I wanted to build it myself with a few tweaks here and there, and I have a few features that I want to add to it.
+This is still work in progress - I'll add a few more features to bring it to life. But it's perfectly stable as is right now if you want to use it.
 
 ## Requirements
 
