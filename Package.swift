@@ -2,19 +2,19 @@
 import PackageDescription
 
 let package = Package(
-    name: "Copper",
+    name: "ThoughtStash",
     platforms: [.macOS(.v26)],
     products: [
-        .executable(name: "Copper", targets: ["Copper"]),
+        .executable(name: "ThoughtStash", targets: ["ThoughtStash"]),
     ],
     targets: [
         .executableTarget(
-            name: "Copper",
+            name: "ThoughtStash",
             swiftSettings: [.swiftLanguageMode(.v5)]
         ),
         .testTarget(
-            name: "CopperTests",
-            dependencies: ["Copper"],
+            name: "ThoughtStashTests",
+            dependencies: ["ThoughtStash"],
             swiftSettings: [.swiftLanguageMode(.v5)]
         ),
     ]

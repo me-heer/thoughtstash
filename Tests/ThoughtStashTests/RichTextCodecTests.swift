@@ -1,6 +1,6 @@
 import AppKit
 import XCTest
-@testable import Copper
+@testable import ThoughtStash
 
 final class RichTextCodecTests: XCTestCase {
     func testRTFRoundTripPreservesBoldAndItalicTraits() throws {

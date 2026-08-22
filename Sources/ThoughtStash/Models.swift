@@ -1,6 +1,6 @@
 import Foundation
 
-struct CopperNote: Identifiable, Codable, Equatable {
+struct StashNote: Identifiable, Codable, Equatable {
     var id = UUID()
     var text: String
     var sectionID: UUID
@@ -91,7 +91,7 @@ struct CopperNote: Identifiable, Codable, Equatable {
     }
 }
 
-struct CopperSection: Identifiable, Codable, Equatable {
+struct StashSection: Identifiable, Codable, Equatable {
     var id = UUID()
     var name: String
 }
@@ -106,15 +106,15 @@ enum CaptureShortcut: String, Codable, CaseIterable, Identifiable {
     var title: String { "Double \(rawValue.capitalized)" }
 }
 
-struct CopperDocument: Codable {
-    var sections: [CopperSection]
-    var notes: [CopperNote]
+struct StashDocument: Codable {
+    var sections: [StashSection]
+    var notes: [StashNote]
     var captureShortcut: CaptureShortcut
     var captureInterval: Double
 
-    static var empty: CopperDocument {
-        CopperDocument(
-            sections: [CopperSection(name: "Inbox")],
+    static var empty: StashDocument {
+        StashDocument(
+            sections: [StashSection(name: "Inbox")],
             notes: [],
             captureShortcut: .shift,
             captureInterval: 0.42

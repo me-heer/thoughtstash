@@ -2,16 +2,18 @@ import AppKit
 import SwiftUI
 
 struct ContentView: View {
-    @EnvironmentObject private var store: CopperStore
+    @EnvironmentObject private var store: StashStore
     @State private var searchText = ""
     @State private var draft = ""
     @State private var selectedIDs = Set<UUID>()
     @State private var editorContext: NoteEditorContext?
-    @State private var expandedNote: CopperNote?
+    @State private var expandedNote: StashNote?
     @State private var isAddingSection = false
     @State private var isShowingShortcutGuide = false
     @State private var collapsedSections = Set<UUID>()
     @State private var isComposerFocused = false
+    @State private var saveTick = 0
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var composerFocusRequest = UUID()
     @FocusState private var isSearchFocused: Bool
 
@@ -19,15 +21,15 @@ struct ContentView: View {
         searchText.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
-    private var filteredNotes: [CopperNote] {
+    private var filteredNotes: [StashNote] {
         guard !searchQuery.isEmpty else { return store.notes }
         return store.notes.filter {
             $0.text.localizedCaseInsensitiveContains(searchQuery)
         }
     }
 
-    private var orderedVisibleNotes: [CopperNote] {
-        store.sections.flatMap { section -> [CopperNote] in
+    private var orderedVisibleNotes: [StashNote] {
+        store.sections.flatMap { section -> [StashNote] in
             guard !searchQuery.isEmpty || !collapsedSections.contains(section.id) else { return [] }
             return filteredNotes.filter { $0.sectionID == section.id }
         }
@@ -104,22 +106,22 @@ struct ContentView: View {
             .onAppear {
                 DispatchQueue.main.async { requestComposerFocus() }
             }
-            .onReceive(NotificationCenter.default.publisher(for: .copperFocusComposer)) { _ in
+            .onReceive(NotificationCenter.default.publisher(for: .stashFocusComposer)) { _ in
                 DispatchQueue.main.async { requestComposerFocus() }
             }
-            .onReceive(NotificationCenter.default.publisher(for: .copperNewNote)) { _ in
+            .onReceive(NotificationCenter.default.publisher(for: .stashNewNote)) { _ in
                 editorContext = NoteEditorContext(note: nil)
             }
-            .onReceive(NotificationCenter.default.publisher(for: .copperNewSection)) { _ in
+            .onReceive(NotificationCenter.default.publisher(for: .stashNewSection)) { _ in
                 isAddingSection = true
             }
-            .onReceive(NotificationCenter.default.publisher(for: .copperFocusSearch)) { _ in
+            .onReceive(NotificationCenter.default.publisher(for: .stashFocusSearch)) { _ in
                 isSearchFocused = true
             }
-            .onReceive(NotificationCenter.default.publisher(for: .copperShowShortcutGuide)) { _ in
+            .onReceive(NotificationCenter.default.publisher(for: .stashShowShortcutGuide)) { _ in
                 isShowingShortcutGuide = true
             }
-            .onReceive(NotificationCenter.default.publisher(for: .copperRevealNotesFile)) { _ in
+            .onReceive(NotificationCenter.default.publisher(for: .stashRevealNotesFile)) { _ in
                 NSWorkspace.shared.activateFileViewerSelecting([store.fileURL])
             }
     }
@@ -127,19 +129,19 @@ struct ContentView: View {
     @ViewBuilder
     private func withSelectionNotifications(_ content: some View) -> some View {
         content
-            .onReceive(NotificationCenter.default.publisher(for: .copperSelectNext)) { _ in selectRelative(1) }
-            .onReceive(NotificationCenter.default.publisher(for: .copperSelectPrevious)) { _ in selectRelative(-1) }
-            .onReceive(NotificationCenter.default.publisher(for: .copperCopySelected)) { _ in store.copy(selectedIDs, asList: false) }
-            .onReceive(NotificationCenter.default.publisher(for: .copperCopySelectedAsList)) { _ in store.copy(selectedIDs, asList: true) }
-            .onReceive(NotificationCenter.default.publisher(for: .copperToggleDone)) { _ in
+            .onReceive(NotificationCenter.default.publisher(for: .stashSelectNext)) { _ in selectRelative(1) }
+            .onReceive(NotificationCenter.default.publisher(for: .stashSelectPrevious)) { _ in selectRelative(-1) }
+            .onReceive(NotificationCenter.default.publisher(for: .stashCopySelected)) { _ in store.copy(selectedIDs, asList: false) }
+            .onReceive(NotificationCenter.default.publisher(for: .stashCopySelectedAsList)) { _ in store.copy(selectedIDs, asList: true) }
+            .onReceive(NotificationCenter.default.publisher(for: .stashToggleDone)) { _ in
                 withAnimation(.bouncy(duration: 0.35, extraBounce: 0.1)) { store.toggleDone(selectedIDs) }
             }
-            .onReceive(NotificationCenter.default.publisher(for: .copperEditSelected)) { _ in editPrimarySelection() }
-            .onReceive(NotificationCenter.default.publisher(for: .copperExpandSelected)) { _ in expandedNote = primarySelectedNote }
-            .onReceive(NotificationCenter.default.publisher(for: .copperMergeSelected)) { _ in mergeSelection() }
-            .onReceive(NotificationCenter.default.publisher(for: .copperMoveToNextSection)) { _ in moveSelectionToNextSection() }
-            .onReceive(NotificationCenter.default.publisher(for: .copperDeleteSelected)) { _ in deleteSelection() }
-            .onReceive(NotificationCenter.default.publisher(for: .copperDeleteActiveSection)) { _ in
+            .onReceive(NotificationCenter.default.publisher(for: .stashEditSelected)) { _ in editPrimarySelection() }
+            .onReceive(NotificationCenter.default.publisher(for: .stashExpandSelected)) { _ in expandedNote = primarySelectedNote }
+            .onReceive(NotificationCenter.default.publisher(for: .stashMergeSelected)) { _ in mergeSelection() }
+            .onReceive(NotificationCenter.default.publisher(for: .stashMoveToNextSection)) { _ in moveSelectionToNextSection() }
+            .onReceive(NotificationCenter.default.publisher(for: .stashDeleteSelected)) { _ in deleteSelection() }
+            .onReceive(NotificationCenter.default.publisher(for: .stashDeleteActiveSection)) { _ in
                 withAnimation(.snappy(duration: 0.28)) { store.deleteSection(store.activeSectionID) }
             }
     }
@@ -227,10 +229,7 @@ struct ContentView: View {
                                                         onSelect: { toggleSelection(note.id) }
                                                     )
                                                     .id(note.id)
-                                                    .transition(.asymmetric(
-                                                        insertion: .scale(scale: 0.92).combined(with: .opacity),
-                                                        removal: .opacity
-                                                    ))
+                                                    .transition(reduceMotion ? .opacity : .stampDrop)
                                                     .contextMenu { contextMenu(for: note) }
                                                 }
                                             }
@@ -314,13 +313,24 @@ struct ContentView: View {
                     ComposerMarkdownEditor(
                         text: $draft,
                         focusRequest: composerFocusRequest,
-                        onFocusChange: { isComposerFocused = $0 },
+                        onFocusChange: { focused in
+                            isComposerFocused = focused
+                            // Only one surface carries the accent outline at a time.
+                            if focused { selectedIDs.removeAll() }
+                        },
                         onSubmit: addDraft
                     )
                 }
                 .frame(height: 48)
 
                 if !draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    Text("\u{23CE} SAVE")
+                        .font(.system(size: 9.5, weight: .medium, design: .monospaced))
+                        .tracking(0.9)
+                        .foregroundStyle(.tertiary)
+                        .padding(.bottom, 3)
+                        .transition(.opacity)
+
                     Button(action: addDraft) {
                         Image(systemName: "arrow.up")
                             .font(.system(size: 13, weight: .semibold))
@@ -339,16 +349,27 @@ struct ContentView: View {
             in: RoundedRectangle(cornerRadius: 13)
         )
         .overlay {
-            RoundedRectangle(cornerRadius: 12)
-                .stroke(isComposerFocused ? Color.accentColor : .clear, lineWidth: 1.5)
+            StampRipple(trigger: saveTick)
+                .clipShape(RoundedRectangle(cornerRadius: 13))
         }
-        .animation(.easeOut(duration: 0.18), value: isComposerFocused)
+        .overlay {
+            // The focus ring snaps rather than fades — Stamp reads as mechanical.
+            ZStack {
+                RoundedRectangle(cornerRadius: 12)
+                    .stroke(Color.accentColor.opacity(isComposerFocused ? 0.22 : 0), lineWidth: 5)
+                RoundedRectangle(cornerRadius: 12)
+                    .stroke(isComposerFocused ? Color.accentColor : .clear, lineWidth: 2)
+            }
+            .animation(nil, value: isComposerFocused)
+        }
+        .stampPress(trigger: saveTick)
+        .animation(.easeOut(duration: 0.12), value: isComposerFocused)
         .animation(.easeOut(duration: 0.16), value: draft.isEmpty)
         .padding(12)
     }
 
     @ViewBuilder
-    private func contextMenu(for note: CopperNote) -> some View {
+    private func contextMenu(for note: StashNote) -> some View {
         let ids = selectedIDs.contains(note.id) ? selectedIDs : [note.id]
         Button("Copy", systemImage: "doc.on.doc") { store.copy(ids, asList: false) }
             .keyboardShortcut("c")
@@ -397,7 +418,7 @@ struct ContentView: View {
         else { selectedIDs.insert(id) }
     }
 
-    private var primarySelectedNote: CopperNote? {
+    private var primarySelectedNote: StashNote? {
         orderedVisibleNotes.first { selectedIDs.contains($0.id) }
     }
 
@@ -457,7 +478,9 @@ struct ContentView: View {
     }
 
     private func addDraft() {
-        withAnimation(.snappy(duration: 0.28)) {
+        guard !draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+        saveTick += 1
+        withAnimation(reduceMotion ? Stamp.cardFade : Stamp.cardDrop) {
             store.addNote(draft, sectionID: defaultSectionID)
         }
         draft = ""
@@ -466,7 +489,7 @@ struct ContentView: View {
 }
 
 private struct NoteRow: View {
-    let note: CopperNote
+    let note: StashNote
     let isSelected: Bool
     let onSelect: () -> Void
 
@@ -474,7 +497,7 @@ private struct NoteRow: View {
         Button(action: onSelect) {
             VStack(alignment: .leading, spacing: 4) {
                 Text(.init(note.headline))
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.system(size: 14))
                     .foregroundStyle(note.isDone ? .secondary : .primary)
                     .strikethrough(note.isDone)
                     .lineLimit(2)
@@ -512,7 +535,7 @@ private struct NoteRow: View {
 
 private struct ExpandedNote: View {
     @Environment(\.dismiss) private var dismiss
-    let note: CopperNote
+    let note: StashNote
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -566,7 +589,7 @@ private struct NewSectionView: View {
 }
 
 struct SettingsView: View {
-    @EnvironmentObject private var store: CopperStore
+    @EnvironmentObject private var store: StashStore
 
     var body: some View {
         Form {

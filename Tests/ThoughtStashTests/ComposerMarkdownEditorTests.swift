@@ -1,6 +1,6 @@
 import AppKit
 import XCTest
-@testable import Copper
+@testable import ThoughtStash
 
 @MainActor
 final class ComposerMarkdownEditorTests: XCTestCase {

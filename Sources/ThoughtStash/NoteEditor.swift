@@ -3,12 +3,12 @@ import SwiftUI
 
 struct NoteEditorContext: Identifiable {
     let id = UUID()
-    let note: CopperNote?
+    let note: StashNote?
 }
 
 struct NoteEditor: View {
     @Environment(\.dismiss) private var dismiss
-    let sections: [CopperSection]
+    let sections: [StashSection]
     let onSave: (_ markdown: String, _ sectionID: UUID) -> Void
 
     @State private var markdown: String
@@ -21,8 +21,8 @@ struct NoteEditor: View {
     private let isNewNote: Bool
 
     init(
-        note: CopperNote?,
-        sections: [CopperSection],
+        note: StashNote?,
+        sections: [StashSection],
         initialSectionID: UUID,
         onSave: @escaping (_ markdown: String, _ sectionID: UUID) -> Void
     ) {

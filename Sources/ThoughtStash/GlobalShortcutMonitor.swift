@@ -33,7 +33,7 @@ final class GlobalShortcutMonitor: @unchecked Sendable {
             return
         }
         let monitorThread = Thread { [weak self] in self?.run() }
-        monitorThread.name = "Copper global shortcut monitor"
+        monitorThread.name = "Thought Stash global shortcut monitor"
         thread = monitorThread
         lock.unlock()
         monitorThread.start()

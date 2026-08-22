@@ -5,7 +5,7 @@ import SwiftUI
 
 @MainActor
 final class CaptureService {
-    private let store: CopperStore
+    private let store: StashStore
     private let shouldFocusComposer: () -> Bool
     private let showPanel: () -> Void
     private var localMonitor: Any?
@@ -16,7 +16,7 @@ final class CaptureService {
     private var observers: [NSObjectProtocol] = []
 
     init(
-        store: CopperStore,
+        store: StashStore,
         shouldFocusComposer: @escaping () -> Bool,
         showPanel: @escaping () -> Void
     ) {
@@ -25,7 +25,7 @@ final class CaptureService {
         self.showPanel = showPanel
         installLocalMonitor()
         observers.append(NotificationCenter.default.addObserver(
-            forName: .copperShortcutChanged,
+            forName: .stashShortcutChanged,
             object: nil,
             queue: .main
         ) { [weak self] _ in
@@ -168,7 +168,7 @@ final class CaptureService {
     private func captureSelectionThroughClipboard(fallbackText: String?) {
         let pasteboard = NSPasteboard.general
         let snapshot = PasteboardSnapshot(pasteboard: pasteboard)
-        let marker = "copper-capture-\(UUID().uuidString)"
+        let marker = "thought-stash-capture-\(UUID().uuidString)"
         pasteboard.clearContents()
         pasteboard.setString(marker, forType: .string)
 

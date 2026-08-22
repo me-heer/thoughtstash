@@ -2,23 +2,23 @@ import AppKit
 import Foundation
 
 @MainActor
-final class CopperStore: ObservableObject {
-    @Published private(set) var document: CopperDocument
+final class StashStore: ObservableObject {
+    @Published private(set) var document: StashDocument
     @Published var activeSectionID: UUID
 
     let fileURL: URL
 
     init(fileURL customFileURL: URL? = nil) {
         let defaultDirectory = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("Copper", isDirectory: true)
+            .appendingPathComponent("Thought Stash", isDirectory: true)
         let resolvedFileURL = customFileURL ?? defaultDirectory.appendingPathComponent("notes.json")
         let directory = resolvedFileURL.deletingLastPathComponent()
         try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         fileURL = resolvedFileURL
 
-        let loadedDocument: CopperDocument
+        let loadedDocument: StashDocument
         if let data = try? Data(contentsOf: fileURL),
-           let saved = try? JSONDecoder().decode(CopperDocument.self, from: data),
+           let saved = try? JSONDecoder().decode(StashDocument.self, from: data),
            !saved.sections.isEmpty {
             loadedDocument = saved
         } else {
@@ -28,9 +28,9 @@ final class CopperStore: ObservableObject {
         activeSectionID = loadedDocument.sections[0].id
     }
 
-    var sections: [CopperSection] { document.sections }
-    var inboxSection: CopperSection? { document.sections.first }
-    var notes: [CopperNote] { document.notes }
+    var sections: [StashSection] { document.sections }
+    var inboxSection: StashSection? { document.sections.first }
+    var notes: [StashNote] { document.notes }
     var captureShortcut: CaptureShortcut { document.captureShortcut }
     var captureInterval: Double { document.captureInterval }
 
@@ -42,7 +42,7 @@ final class CopperStore: ObservableObject {
         let text = rawText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else { return }
         let destination = sectionID ?? activeSectionID
-        document.notes.insert(CopperNote(
+        document.notes.insert(StashNote(
             text: text,
             sectionID: destination,
             richTextRTF: richTextRTF
@@ -90,7 +90,7 @@ final class CopperStore: ObservableObject {
         guard selected.count > 1, let first = selected.first else { return nil }
         document.notes.removeAll { ids.contains($0.id) }
         let mergedRTF = RichTextCodec.mergedRTF(notes: selected, asList: false)
-        let merged = CopperNote(
+        let merged = StashNote(
             text: selected.map(\.text).joined(separator: "\n\n"),
             sectionID: first.sectionID,
             createdAt: Date(),
@@ -104,7 +104,7 @@ final class CopperStore: ObservableObject {
     func addSection(named rawName: String) {
         let name = rawName.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !name.isEmpty else { return }
-        let section = CopperSection(name: name)
+        let section = StashSection(name: name)
         document.sections.append(section)
         activeSectionID = section.id
         save()
@@ -122,13 +122,13 @@ final class CopperStore: ObservableObject {
     func setCaptureShortcut(_ shortcut: CaptureShortcut) {
         document.captureShortcut = shortcut
         save()
-        NotificationCenter.default.post(name: .copperShortcutChanged, object: nil)
+        NotificationCenter.default.post(name: .stashShortcutChanged, object: nil)
     }
 
     func setCaptureInterval(_ interval: Double) {
         document.captureInterval = interval
         save()
-        NotificationCenter.default.post(name: .copperShortcutChanged, object: nil)
+        NotificationCenter.default.post(name: .stashShortcutChanged, object: nil)
     }
 
     func copy(_ ids: Set<UUID>, asList: Bool) {
@@ -163,22 +163,22 @@ final class CopperStore: ObservableObject {
 }
 
 extension Notification.Name {
-    static let copperShortcutChanged = Notification.Name("CopperShortcutChanged")
-    static let copperFocusComposer = Notification.Name("CopperFocusComposer")
-    static let copperNewNote = Notification.Name("CopperNewNote")
-    static let copperNewSection = Notification.Name("CopperNewSection")
-    static let copperFocusSearch = Notification.Name("CopperFocusSearch")
-    static let copperSelectNext = Notification.Name("CopperSelectNext")
-    static let copperSelectPrevious = Notification.Name("CopperSelectPrevious")
-    static let copperCopySelected = Notification.Name("CopperCopySelected")
-    static let copperCopySelectedAsList = Notification.Name("CopperCopySelectedAsList")
-    static let copperToggleDone = Notification.Name("CopperToggleDone")
-    static let copperEditSelected = Notification.Name("CopperEditSelected")
-    static let copperExpandSelected = Notification.Name("CopperExpandSelected")
-    static let copperMergeSelected = Notification.Name("CopperMergeSelected")
-    static let copperMoveToNextSection = Notification.Name("CopperMoveToNextSection")
-    static let copperDeleteSelected = Notification.Name("CopperDeleteSelected")
-    static let copperDeleteActiveSection = Notification.Name("CopperDeleteActiveSection")
-    static let copperShowShortcutGuide = Notification.Name("CopperShowShortcutGuide")
-    static let copperRevealNotesFile = Notification.Name("CopperRevealNotesFile")
+    static let stashShortcutChanged = Notification.Name("StashShortcutChanged")
+    static let stashFocusComposer = Notification.Name("StashFocusComposer")
+    static let stashNewNote = Notification.Name("StashNewNote")
+    static let stashNewSection = Notification.Name("StashNewSection")
+    static let stashFocusSearch = Notification.Name("StashFocusSearch")
+    static let stashSelectNext = Notification.Name("StashSelectNext")
+    static let stashSelectPrevious = Notification.Name("StashSelectPrevious")
+    static let stashCopySelected = Notification.Name("StashCopySelected")
+    static let stashCopySelectedAsList = Notification.Name("StashCopySelectedAsList")
+    static let stashToggleDone = Notification.Name("StashToggleDone")
+    static let stashEditSelected = Notification.Name("StashEditSelected")
+    static let stashExpandSelected = Notification.Name("StashExpandSelected")
+    static let stashMergeSelected = Notification.Name("StashMergeSelected")
+    static let stashMoveToNextSection = Notification.Name("StashMoveToNextSection")
+    static let stashDeleteSelected = Notification.Name("StashDeleteSelected")
+    static let stashDeleteActiveSection = Notification.Name("StashDeleteActiveSection")
+    static let stashShowShortcutGuide = Notification.Name("StashShowShortcutGuide")
+    static let stashRevealNotesFile = Notification.Name("StashRevealNotesFile")
 }

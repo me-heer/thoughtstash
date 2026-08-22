@@ -5,13 +5,13 @@
     <key>CFBundleDevelopmentRegion</key>
     <string>en</string>
     <key>CFBundleExecutable</key>
-    <string>Copper</string>
+    <string>ThoughtStash</string>
     <key>CFBundleIdentifier</key>
-    <string>com.local.Copper</string>
+    <string>com.local.ThoughtStash</string>
     <key>CFBundleInfoDictionaryVersion</key>
     <string>6.0</string>
     <key>CFBundleName</key>
-    <string>Copper</string>
+    <string>Thought Stash</string>
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleShortVersionString</key>

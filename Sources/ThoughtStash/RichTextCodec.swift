@@ -68,7 +68,7 @@ enum RichTextCodec {
         return output
     }
 
-    static func attributedString(for note: CopperNote) -> NSAttributedString {
+    static func attributedString(for note: StashNote) -> NSAttributedString {
         if let data = note.richTextRTF, let richText = attributedString(fromRTF: data) {
             return richText
         }
@@ -82,7 +82,7 @@ enum RichTextCodec {
         )
     }
 
-    static func mergedRTF(notes: [CopperNote], asList: Bool) -> Data? {
+    static func mergedRTF(notes: [StashNote], asList: Bool) -> Data? {
         let output = NSMutableAttributedString()
         for (index, note) in notes.enumerated() {
             if index > 0 { output.append(NSAttributedString(string: "\n\n")) }

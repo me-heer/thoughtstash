@@ -1,7 +1,7 @@
 import SwiftUI
 
 @main
-struct CopperApp: App {
+struct StashApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
 
     var body: some Scene {
@@ -10,39 +10,39 @@ struct CopperApp: App {
                 .environmentObject(AppDelegate.store)
         }
         .commands {
-            CopperCommands()
+            StashCommands()
         }
     }
 }
 
-private struct CopperCommands: Commands {
+private struct StashCommands: Commands {
     var body: some Commands {
         CommandGroup(replacing: .newItem) {
-            command(.copperFocusComposer)
-            command(.copperNewNote)
-            command(.copperNewSection)
+            command(.stashFocusComposer)
+            command(.stashNewNote)
+            command(.stashNewSection)
         }
 
         CommandMenu("Notes") {
-            command(.copperFocusSearch)
+            command(.stashFocusSearch)
             Divider()
-            command(.copperSelectPrevious)
-            command(.copperSelectNext)
+            command(.stashSelectPrevious)
+            command(.stashSelectNext)
             Divider()
-            command(.copperCopySelected)
-            command(.copperCopySelectedAsList)
-            command(.copperToggleDone)
-            command(.copperEditSelected)
-            command(.copperExpandSelected)
-            command(.copperMergeSelected)
-            command(.copperMoveToNextSection)
+            command(.stashCopySelected)
+            command(.stashCopySelectedAsList)
+            command(.stashToggleDone)
+            command(.stashEditSelected)
+            command(.stashExpandSelected)
+            command(.stashMergeSelected)
+            command(.stashMoveToNextSection)
             Divider()
-            command(.copperDeleteSelected)
-            command(.copperDeleteActiveSection)
+            command(.stashDeleteSelected)
+            command(.stashDeleteActiveSection)
             Divider()
-            command(.copperRevealNotesFile)
+            command(.stashRevealNotesFile)
             Divider()
-            command(.copperShowShortcutGuide)
+            command(.stashShowShortcutGuide)
         }
     }
 

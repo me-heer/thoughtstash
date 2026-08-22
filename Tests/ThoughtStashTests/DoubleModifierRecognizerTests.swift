@@ -1,6 +1,6 @@
 import CoreGraphics
 import XCTest
-@testable import Copper
+@testable import ThoughtStash
 
 final class DoubleModifierRecognizerTests: XCTestCase {
     func testRecognizesTwoCompleteShiftTaps() {

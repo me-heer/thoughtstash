@@ -1,6 +1,6 @@
 import AppKit
 import XCTest
-@testable import Copper
+@testable import ThoughtStash
 
 final class ShortcutMapTests: XCTestCase {
     func testCommandBackspaceMatchesDeleteSelectedWithoutCharacters() {

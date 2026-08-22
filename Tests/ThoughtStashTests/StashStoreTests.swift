@@ -1,9 +1,9 @@
 import AppKit
 import XCTest
-@testable import Copper
+@testable import ThoughtStash
 
 @MainActor
-final class CopperStoreTests: XCTestCase {
+final class StashStoreTests: XCTestCase {
     private var temporaryDirectory: URL!
     private var fileURL: URL!
 
@@ -18,17 +18,17 @@ final class CopperStoreTests: XCTestCase {
     }
 
     func testNotesPersistAndReload() {
-        let store = CopperStore(fileURL: fileURL)
+        let store = StashStore(fileURL: fileURL)
         store.addNote("First prompt")
         store.addNote("Second prompt")
 
-        let reloaded = CopperStore(fileURL: fileURL)
+        let reloaded = StashStore(fileURL: fileURL)
 
         XCTAssertEqual(reloaded.notes.map(\.text), ["Second prompt", "First prompt"])
     }
 
     func testMergeCombinesSelectedNotesChronologically() throws {
-        let store = CopperStore(fileURL: fileURL)
+        let store = StashStore(fileURL: fileURL)
         store.addNote("First")
         store.addNote("Second")
         let ids = Set(store.notes.map(\.id))
@@ -41,7 +41,7 @@ final class CopperStoreTests: XCTestCase {
     }
 
     func testDeletingSectionMovesNotesToRemainingSection() throws {
-        let store = CopperStore(fileURL: fileURL)
+        let store = StashStore(fileURL: fileURL)
         store.addSection(named: "Research")
         let researchID = try XCTUnwrap(store.sections.last?.id)
         store.addNote("Keep this", sectionID: researchID)
@@ -53,7 +53,7 @@ final class CopperStoreTests: XCTestCase {
     }
 
     func testFirstMeaningfulLineProvidesHeadlineAndRemainingBody() throws {
-        let store = CopperStore(fileURL: fileURL)
+        let store = StashStore(fileURL: fileURL)
         store.addNote("# Launch plan\n\nThis is **important**.")
 
         let note = try XCTUnwrap(store.notes.first)
@@ -84,7 +84,7 @@ final class CopperStoreTests: XCTestCase {
         try FileManager.default.createDirectory(at: temporaryDirectory, withIntermediateDirectories: true)
         try data.write(to: fileURL)
 
-        let store = CopperStore(fileURL: fileURL)
+        let store = StashStore(fileURL: fileURL)
         let migrated = try XCTUnwrap(store.notes.first)
         XCTAssertEqual(migrated.id, noteID)
         XCTAssertEqual(migrated.createdAt, createdAt)
@@ -93,7 +93,7 @@ final class CopperStoreTests: XCTestCase {
         XCTAssertNil(migrated.richTextRTF)
 
         store.updateNote(id: migrated.id, text: migrated.text)
-        let reloaded = CopperStore(fileURL: fileURL)
+        let reloaded = StashStore(fileURL: fileURL)
         XCTAssertEqual(reloaded.notes.first?.text, "Launch plan\n\nThis is **important**.")
     }
 
@@ -103,10 +103,10 @@ final class CopperStoreTests: XCTestCase {
             attributes: [.font: NSFont.boldSystemFont(ofSize: 14)]
         )
         let rtf = try XCTUnwrap(RichTextCodec.rtfData(from: richText))
-        let store = CopperStore(fileURL: fileURL)
+        let store = StashStore(fileURL: fileURL)
         store.addNote("Formatted", richTextRTF: rtf)
 
-        let reloaded = CopperStore(fileURL: fileURL)
+        let reloaded = StashStore(fileURL: fileURL)
         let note = try XCTUnwrap(reloaded.notes.first)
         XCTAssertNotNil(note.richTextRTF)
 

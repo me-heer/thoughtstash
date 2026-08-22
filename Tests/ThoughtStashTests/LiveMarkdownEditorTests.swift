@@ -1,7 +1,7 @@
 import AppKit
 import SwiftUI
 import XCTest
-@testable import Copper
+@testable import ThoughtStash
 
 @MainActor
 final class LiveMarkdownEditorTests: XCTestCase {

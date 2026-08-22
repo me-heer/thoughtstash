@@ -4,16 +4,16 @@ import SwiftUI
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
-    static let store = CopperStore()
+    static let store = StashStore()
 
-    private var panelController: CopperPanelController!
+    private var panelController: StashPanelController!
     private var captureService: CaptureService!
     private var notesKeyMonitor: NotesKeyMonitor!
     private var statusItem: NSStatusItem!
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.regular)
-        panelController = CopperPanelController(store: Self.store)
+        panelController = StashPanelController(store: Self.store)
         captureService = CaptureService(
             store: Self.store,
             shouldFocusComposer: { [weak self] in
@@ -37,9 +37,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func configureStatusItem() {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
-        statusItem.button?.image = NSImage(systemSymbolName: "square.stack.3d.up.fill", accessibilityDescription: "Copper")
+        statusItem.button?.image = NSImage(systemSymbolName: "square.stack.3d.up.fill", accessibilityDescription: "Thought Stash")
         let menu = NSMenu()
-        menu.addItem(withTitle: "Show Copper", action: #selector(showCopper), keyEquivalent: " ")
+        menu.addItem(withTitle: "Show Thought Stash", action: #selector(showThoughtStash), keyEquivalent: " ")
         menu.addItem(withTitle: "Capture Selected Text", action: #selector(captureSelectedText), keyEquivalent: "")
         menu.addItem(withTitle: "New Note…", action: #selector(newNote), keyEquivalent: "")
         menu.addItem(withTitle: "New Section…", action: #selector(newSection), keyEquivalent: "")
@@ -47,26 +47,26 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(withTitle: "Settings…", action: #selector(openSettings), keyEquivalent: ",")
         menu.addItem(withTitle: "Reveal Notes File", action: #selector(revealNotes), keyEquivalent: "")
         menu.addItem(.separator())
-        menu.addItem(withTitle: "Quit Copper", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+        menu.addItem(withTitle: "Quit Thought Stash", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         menu.items.forEach { $0.target = self }
         statusItem.menu = menu
     }
 
-    @objc private func showCopper() { panelController.show() }
+    @objc private func showThoughtStash() { panelController.show() }
 
     @objc private func captureSelectedText() { captureService.captureSelection() }
 
     @objc private func newNote() {
         panelController.show()
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.08) {
-            NotificationCenter.default.post(name: .copperNewNote, object: nil)
+            NotificationCenter.default.post(name: .stashNewNote, object: nil)
         }
     }
 
     @objc private func newSection() {
         panelController.show()
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.08) {
-            NotificationCenter.default.post(name: .copperNewSection, object: nil)
+            NotificationCenter.default.post(name: .stashNewSection, object: nil)
         }
     }
 
@@ -81,8 +81,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 }
 
 @MainActor
-final class CopperPanelController: NSWindowController, NSWindowDelegate {
-    init(store: CopperStore) {
+final class StashPanelController: NSWindowController, NSWindowDelegate {
+    init(store: StashStore) {
         let panel = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 390, height: 700),
             styleMask: [.titled, .fullSizeContentView, .resizable, .closable],
@@ -166,7 +166,7 @@ final class CopperPanelController: NSWindowController, NSWindowDelegate {
 
     private func focusComposer() {
         DispatchQueue.main.async {
-            NotificationCenter.default.post(name: .copperFocusComposer, object: nil)
+            NotificationCenter.default.post(name: .stashFocusComposer, object: nil)
         }
     }
 

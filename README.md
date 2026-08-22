@@ -1,4 +1,4 @@
-# Copper
+# Thought Stash
 
 A local-only, native macOS scratchpad for AI-assisted work. Select text in any app and double-tap Shift to capture it.
 
@@ -6,14 +6,14 @@ A local-only, native macOS scratchpad for AI-assisted work. Select text in any a
 
 ```sh
 ./Scripts/build-app.sh
-open dist/Copper.app
+open "dist/Thought Stash.app"
 ```
 
-For development, use `swift run Copper`. Run the test suite with `swift test`.
+For development, use `swift run ThoughtStash`. Run the test suite with `swift test`.
 
-On first capture, macOS asks for Accessibility access. Enable Copper in **System Settings → Privacy & Security → Accessibility**, then try the shortcut again.
+On first capture, macOS asks for Accessibility access. Enable Thought Stash in **System Settings → Privacy & Security → Accessibility**, then try the shortcut again.
 
-Notes are stored as readable JSON at `~/Library/Application Support/Copper/notes.json`.
+Notes are stored as readable JSON at `~/Library/Application Support/Thought Stash/notes.json`.
 
 ## Included
 

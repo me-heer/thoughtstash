@@ -70,7 +70,7 @@ struct ShortcutEntry: Identifiable {
     }
 }
 
-/// Single source of truth for every Copper shortcut: the Notes menu, the in-app
+/// Single source of truth for every Thought Stash shortcut: the Notes menu, the in-app
 /// shortcut guide, and ambient hints all read from this array so they can't drift apart.
 enum ShortcutMap {
     static let all: [ShortcutEntry] = [
@@ -84,7 +84,7 @@ enum ShortcutMap {
             slug: "focusComposer",
             "New Quick Note",
             key: "n", modifiers: [.command],
-            notification: .copperFocusComposer,
+            notification: .stashFocusComposer,
             group: .notes
         ),
         ShortcutEntry(
@@ -97,126 +97,126 @@ enum ShortcutMap {
             slug: "newNote",
             "New Note…",
             key: "n", modifiers: [.command, .shift],
-            notification: .copperNewNote,
+            notification: .stashNewNote,
             group: .notes
         ),
         ShortcutEntry(
             slug: "newSection",
             "New Section…",
             key: "n", modifiers: [.command, .option],
-            notification: .copperNewSection,
+            notification: .stashNewSection,
             group: .sections
         ),
         ShortcutEntry(
             slug: "focusSearch",
             "Search",
             key: "f", modifiers: [.command],
-            notification: .copperFocusSearch,
+            notification: .stashFocusSearch,
             group: .notes
         ),
         ShortcutEntry(
             slug: "selectPrevious",
             "Select Previous Note",
             key: .upArrow, modifiers: [.command],
-            notification: .copperSelectPrevious,
+            notification: .stashSelectPrevious,
             group: .selection
         ),
         ShortcutEntry(
             slug: "selectNext",
             "Select Next Note",
             key: .downArrow, modifiers: [.command],
-            notification: .copperSelectNext,
+            notification: .stashSelectNext,
             group: .selection
         ),
         ShortcutEntry(
             slug: "vimSelectPrevious",
             "Select Previous Note (Vim)",
             key: "k", modifiers: [.command],
-            notification: .copperSelectPrevious,
+            notification: .stashSelectPrevious,
             group: .selection
         ),
         ShortcutEntry(
             slug: "vimSelectNext",
             "Select Next Note (Vim)",
             key: "j", modifiers: [.command],
-            notification: .copperSelectNext,
+            notification: .stashSelectNext,
             group: .selection
         ),
         ShortcutEntry(
             slug: "copySelected",
             "Copy Selected Notes",
             key: "c", modifiers: [.command, .option],
-            notification: .copperCopySelected,
+            notification: .stashCopySelected,
             group: .selection
         ),
         ShortcutEntry(
             slug: "copySelectedAsList",
             "Copy Selected as List",
             key: "c", modifiers: [.command, .shift],
-            notification: .copperCopySelectedAsList,
+            notification: .stashCopySelectedAsList,
             group: .selection
         ),
         ShortcutEntry(
             slug: "toggleDone",
             "Mark Selected Done",
             key: "d", modifiers: [.command],
-            notification: .copperToggleDone,
+            notification: .stashToggleDone,
             group: .selection
         ),
         ShortcutEntry(
             slug: "editSelected",
             "Edit Selected Note",
             key: "e", modifiers: [.command],
-            notification: .copperEditSelected,
+            notification: .stashEditSelected,
             group: .editing
         ),
         ShortcutEntry(
             slug: "expandSelected",
             "Expand Selected Note",
             key: .return, modifiers: [.command, .option],
-            notification: .copperExpandSelected,
+            notification: .stashExpandSelected,
             group: .editing
         ),
         ShortcutEntry(
             slug: "mergeSelected",
             "Merge Selected Notes",
             key: "m", modifiers: [.command, .shift],
-            notification: .copperMergeSelected,
+            notification: .stashMergeSelected,
             group: .editing
         ),
         ShortcutEntry(
             slug: "moveToNextSection",
             "Move to Next Section",
             key: .rightArrow, modifiers: [.command, .option],
-            notification: .copperMoveToNextSection,
+            notification: .stashMoveToNextSection,
             group: .sections
         ),
         ShortcutEntry(
             slug: "deleteSelected",
             "Delete Selected Notes",
             key: .delete, modifiers: [.command],
-            notification: .copperDeleteSelected,
+            notification: .stashDeleteSelected,
             group: .selection
         ),
         ShortcutEntry(
             slug: "deleteActiveSection",
             "Delete Active Section",
             key: .delete, modifiers: [.command, .option],
-            notification: .copperDeleteActiveSection,
+            notification: .stashDeleteActiveSection,
             group: .sections
         ),
         ShortcutEntry(
             slug: "revealNotesFile",
             "Reveal Notes File",
             key: "r", modifiers: [.command, .shift],
-            notification: .copperRevealNotesFile,
+            notification: .stashRevealNotesFile,
             group: .app
         ),
         ShortcutEntry(
             slug: "shortcutGuide",
             "Keyboard Shortcuts…",
             key: "/", modifiers: [.command],
-            notification: .copperShowShortcutGuide,
+            notification: .stashShowShortcutGuide,
             group: .app
         ),
         ShortcutEntry(
@@ -233,7 +233,7 @@ enum ShortcutMap {
         ),
         ShortcutEntry(
             slug: "cancelDialog",
-            "Close Copper / cancel a dialog",
+            "Close Thought Stash / cancel a dialog",
             group: .app,
             displayOverride: "Escape"
         ),

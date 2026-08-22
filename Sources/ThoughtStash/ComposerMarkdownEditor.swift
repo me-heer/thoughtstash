@@ -20,6 +20,7 @@ struct ComposerMarkdownEditor: NSViewRepresentable {
         let textView = ComposerMarkdownTextView()
         textView.delegate = context.coordinator
         textView.onSubmit = onSubmit
+        textView.onFocusChange = onFocusChange
         textView.string = text
         textView.drawsBackground = false
         textView.isRichText = false
@@ -47,6 +48,7 @@ struct ComposerMarkdownEditor: NSViewRepresentable {
         guard let textView = scrollView.documentView as? ComposerMarkdownTextView else { return }
         context.coordinator.parent = self
         textView.onSubmit = onSubmit
+        textView.onFocusChange = onFocusChange
         if textView.string != text {
             let selection = textView.selectedRanges
             textView.string = text
@@ -108,6 +110,22 @@ final class ComposerMarkdownScrollView: NSScrollView {
 
 final class ComposerMarkdownTextView: NSTextView {
     var onSubmit: (() -> Void)?
+    /// Reported on first-responder changes, not just on editing, so the focus
+    /// ring lights as soon as the composer is focused — including the
+    /// programmatic focus Thought Stash takes on show and after a save.
+    var onFocusChange: ((Bool) -> Void)?
+
+    override func becomeFirstResponder() -> Bool {
+        let accepted = super.becomeFirstResponder()
+        if accepted { onFocusChange?(true) }
+        return accepted
+    }
+
+    override func resignFirstResponder() -> Bool {
+        let resigned = super.resignFirstResponder()
+        if resigned { onFocusChange?(false) }
+        return resigned
+    }
 
     override func keyDown(with event: NSEvent) {
         guard event.keyCode == 36 || event.keyCode == 76 else {
