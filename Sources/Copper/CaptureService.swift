@@ -6,27 +6,57 @@ import SwiftUI
 final class CaptureService {
     private let store: CopperStore
     private let showPanel: () -> Void
-    private var globalMonitor: Any?
     private var localMonitor: Any?
-    private var lastModifierTap: TimeInterval = 0
+    private var globalMonitor: GlobalShortcutMonitor?
+    private var recognizer = DoubleModifierRecognizer()
+    private var globalObservationAvailable = false
     private var toastWindow: NSPanel?
+    private var observers: [NSObjectProtocol] = []
 
     init(store: CopperStore, showPanel: @escaping () -> Void) {
         self.store = store
         self.showPanel = showPanel
-        installMonitors()
-        NotificationCenter.default.addObserver(
+        installLocalMonitor()
+        observers.append(NotificationCenter.default.addObserver(
             forName: .copperShortcutChanged,
             object: nil,
             queue: .main
         ) { [weak self] _ in
-            Task { @MainActor in self?.lastModifierTap = 0 }
-        }
+            Task { @MainActor in self?.recognizer.reset() }
+        })
+        observers.append(NotificationCenter.default.addObserver(
+            forName: NSApplication.didBecomeActiveNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in self?.ensureGlobalMonitor() }
+        })
+        observers.append(NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.didWakeNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in self?.restartGlobalMonitor() }
+        })
+        observers.append(NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.sessionDidBecomeActiveNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in self?.restartGlobalMonitor() }
+        })
     }
 
     deinit {
-        if let globalMonitor { NSEvent.removeMonitor(globalMonitor) }
+        globalMonitor?.stop()
         if let localMonitor { NSEvent.removeMonitor(localMonitor) }
+        observers.forEach(NotificationCenter.default.removeObserver)
+        observers.forEach(NSWorkspace.shared.notificationCenter.removeObserver)
+    }
+
+    func start() {
+        requestAccessibility()
+        ensureGlobalMonitor(requestPermission: true)
     }
 
     func requestAccessibility() {
@@ -49,43 +79,62 @@ final class CaptureService {
         captureSelectionThroughClipboard()
     }
 
-    private func installMonitors() {
-        globalMonitor = NSEvent.addGlobalMonitorForEvents(matching: .flagsChanged) { [weak self] event in
-            Task { @MainActor in self?.handle(event) }
-        }
-        localMonitor = NSEvent.addLocalMonitorForEvents(matching: .flagsChanged) { [weak self] event in
-            Task { @MainActor in self?.handle(event) }
+    private func installLocalMonitor() {
+        localMonitor = NSEvent.addLocalMonitorForEvents(matching: [.flagsChanged, .keyDown, .keyUp]) { [weak self] event in
+            Task { @MainActor in
+                guard let self, !self.globalObservationAvailable else { return }
+                self.handle(KeyboardSample(
+                    kind: event.type == .flagsChanged ? .flagsChanged : (event.type == .keyDown ? .keyDown : .keyUp),
+                    keyCode: event.keyCode,
+                    flags: CGEventFlags(rawValue: UInt64(event.modifierFlags.rawValue)),
+                    timestamp: event.timestamp
+                ))
+            }
             return event
         }
     }
 
-    private func handle(_ event: NSEvent) {
-        let expectedFlag: NSEvent.ModifierFlags
-        let expectedCodes: Set<UInt16>
-        switch store.captureShortcut {
-        case .shift:
-            expectedFlag = .shift
-            expectedCodes = [56, 60]
-        case .option:
-            expectedFlag = .option
-            expectedCodes = [58, 61]
-        case .control:
-            expectedFlag = .control
-            expectedCodes = [59, 62]
-        case .command:
-            expectedFlag = .command
-            expectedCodes = [54, 55]
-        }
-
-        let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
-        guard expectedCodes.contains(event.keyCode), flags.contains(expectedFlag) else { return }
-
-        let now = ProcessInfo.processInfo.systemUptime
-        if now - lastModifierTap <= store.captureInterval {
-            lastModifierTap = 0
+    private func handle(_ sample: KeyboardSample) {
+        if recognizer.process(
+            sample,
+            shortcut: store.captureShortcut,
+            interval: store.captureInterval
+        ) {
             captureSelection()
-        } else {
-            lastModifierTap = now
+        }
+    }
+
+    private func ensureGlobalMonitor(requestPermission: Bool = false) {
+        guard CGPreflightListenEventAccess() else {
+            globalObservationAvailable = false
+            recognizer.reset()
+            if requestPermission { CGRequestListenEventAccess() }
+            return
+        }
+        guard globalMonitor == nil else { return }
+
+        let monitor = GlobalShortcutMonitor(
+            sampleHandler: { [weak self] sample in
+                DispatchQueue.main.async { self?.handle(sample) }
+            },
+            availabilityHandler: { [weak self] available in
+                DispatchQueue.main.async {
+                    self?.globalObservationAvailable = available
+                    self?.recognizer.reset()
+                }
+            }
+        )
+        globalMonitor = monitor
+        monitor.start()
+    }
+
+    private func restartGlobalMonitor() {
+        recognizer.reset()
+        globalObservationAvailable = false
+        globalMonitor?.stop()
+        globalMonitor = nil
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) { [weak self] in
+            self?.ensureGlobalMonitor()
         }
     }
 

@@ -15,7 +15,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         captureService = CaptureService(store: Self.store) { [weak self] in
             self?.panelController.show()
         }
-        captureService.requestAccessibility()
+        captureService.start()
         configureStatusItem()
         panelController.show()
     }
@@ -35,7 +35,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         statusItem.menu = menu
     }
 
-    @objc private func showCopper() { panelController.toggle() }
+    @objc private func showCopper() { panelController.show() }
 
     @objc private func captureSelectedText() { captureService.captureSelection() }
 
@@ -87,9 +87,13 @@ final class CopperPanelController: NSWindowController, NSWindowDelegate {
                 y: frame.midY - panel.frame.height / 2
             ))
         }
-        NSApp.activate(ignoringOtherApps: true)
+        NSApp.unhide(nil)
         panel.makeKeyAndOrderFront(nil)
-        NotificationCenter.default.post(name: .copperFocusComposer, object: nil)
+        panel.orderFrontRegardless()
+        NSApp.activate(ignoringOtherApps: true)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+            NotificationCenter.default.post(name: .copperFocusComposer, object: nil)
+        }
     }
 
     func toggle() {
