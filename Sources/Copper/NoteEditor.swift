@@ -1,71 +1,83 @@
+import AppKit
 import SwiftUI
 
 struct NoteEditorContext: Identifiable {
     let id = UUID()
     let note: CopperNote?
-    let startExpanded: Bool
 }
 
-/// A single editor for every note. There is no separate "longform" editor: any note can
-/// carry a title (shown here whether compact or expanded) and any note's editor can be
-/// expanded to a larger window via the header button or ⇧⌘Return. Whether the saved note
-/// displays as "longform" in the list is inferred from whether a title was given.
 struct NoteEditor: View {
     @Environment(\.dismiss) private var dismiss
     let sections: [CopperSection]
-    let onSave: (_ title: String, _ markdown: String, _ sectionID: UUID) -> Void
+    let onSave: (_ markdown: String, _ sectionID: UUID) -> Void
 
-    @State private var title: String
     @State private var markdown: String
     @State private var sectionID: UUID
-    @State private var isExpanded: Bool
-    @FocusState private var isTitleFocused: Bool
-    @FocusState private var isBodyFocused: Bool
+    @State private var isConfirmingDiscard = false
+    @State private var focusRequest = UUID()
+    @State private var keyMonitor: Any?
+    private let originalMarkdown: String
+    private let originalSectionID: UUID
+    private let isNewNote: Bool
 
     init(
         note: CopperNote?,
         sections: [CopperSection],
         initialSectionID: UUID,
-        startExpanded: Bool,
-        onSave: @escaping (_ title: String, _ markdown: String, _ sectionID: UUID) -> Void
+        onSave: @escaping (_ markdown: String, _ sectionID: UUID) -> Void
     ) {
         self.sections = sections
         self.onSave = onSave
-        _title = State(initialValue: note?.title ?? "")
-        _markdown = State(initialValue: note?.text ?? "")
-        _sectionID = State(initialValue: note?.sectionID ?? initialSectionID)
-        _isExpanded = State(initialValue: startExpanded || note?.isLongform == true)
+        let initialMarkdown = note?.text ?? ""
+        let initialSection = note?.sectionID ?? initialSectionID
+        isNewNote = note == nil
+        originalMarkdown = initialMarkdown
+        originalSectionID = initialSection
+        _markdown = State(initialValue: initialMarkdown)
+        _sectionID = State(initialValue: initialSection)
     }
 
     var body: some View {
         VStack(spacing: 0) {
             header
             Divider()
-            InlineMarkdownEditor(text: $markdown, isFocused: $isBodyFocused, compact: !isExpanded)
-                .padding(16)
-        }
-        .frame(
-            width: isExpanded ? 880 : 480,
-            height: isExpanded ? 600 : 360
-        )
-        .animation(.spring(response: 0.35, dampingFraction: 0.86), value: isExpanded)
-        .onAppear {
-            DispatchQueue.main.async {
-                if isExpanded && title.isEmpty {
-                    isTitleFocused = true
-                } else {
-                    isBodyFocused = true
-                }
+            LiveMarkdownEditor(text: $markdown, focusRequest: focusRequest)
+                .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 12))
+            .padding(18)
+
+            HStack {
+                Label("The first line becomes the note title", systemImage: "textformat")
+                Spacer()
+                Text("\(markdown.count) characters")
             }
+            .font(.caption)
+            .foregroundStyle(.secondary)
+            .padding(.horizontal, 20)
+            .padding(.bottom, 16)
+        }
+        .frame(width: 760, height: 560)
+        .interactiveDismissDisabled(isDirty)
+        .onAppear {
+            installKeyMonitor()
+            refocusEditor()
+        }
+        .onDisappear { removeKeyMonitor() }
+        .confirmationDialog(
+            "Discard changes?",
+            isPresented: $isConfirmingDiscard,
+            titleVisibility: .visible
+        ) {
+            Button("Discard Changes", role: .destructive) { dismiss() }
+            Button("Keep Editing", role: .cancel) { refocusEditor() }
+        } message: {
+            Text("Your changes to this note have not been saved.")
         }
     }
 
     private var header: some View {
         HStack(spacing: 12) {
-            TextField(isExpanded ? "Untitled note" : "Title (optional)", text: $title)
-                .textFieldStyle(.plain)
-                .font(isExpanded ? .title2.weight(.semibold) : .body.weight(.medium))
-                .focused($isTitleFocused)
+            Text(isNewNote ? "New Note" : "Edit Note")
+                .font(.title2.weight(.semibold))
 
             Picker("Section", selection: $sectionID) {
                 ForEach(sections) { section in Text(section.name).tag(section.id) }
@@ -73,30 +85,56 @@ struct NoteEditor: View {
             .labelsHidden()
             .fixedSize()
 
-            Button {
-                withAnimation(.spring(response: 0.35, dampingFraction: 0.86)) {
-                    isExpanded.toggle()
-                }
-            } label: {
-                Image(systemName: isExpanded ? "arrow.down.right.and.arrow.up.left" : "arrow.up.left.and.arrow.down.right")
-            }
-            .buttonStyle(.glass)
-            .keyboardShortcut(.return, modifiers: [.command, .shift])
+            Spacer()
 
-            Button("Cancel") { dismiss() }
+            Button("Cancel") { cancel() }
                 .keyboardShortcut(.cancelAction)
                 .buttonStyle(.glass)
 
             Button("Save") { save() }
                 .buttonStyle(.glassProminent)
-                .keyboardShortcut(.defaultAction)
+                .keyboardShortcut("s", modifiers: .command)
                 .disabled(markdown.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
         }
         .padding(16)
     }
 
+    private var isDirty: Bool {
+        markdown != originalMarkdown || sectionID != originalSectionID
+    }
+
+    private func cancel() {
+        if isDirty { isConfirmingDiscard = true }
+        else { dismiss() }
+    }
+
+    private func refocusEditor() {
+        focusRequest = UUID()
+    }
+
+    private func installKeyMonitor() {
+        guard keyMonitor == nil else { return }
+        keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
+            let modifiers = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+            guard modifiers == .command,
+                  event.charactersIgnoringModifiers?.lowercased() == "s" else {
+                return event
+            }
+            guard !markdown.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+                return nil
+            }
+            save()
+            return nil
+        }
+    }
+
+    private func removeKeyMonitor() {
+        if let keyMonitor { NSEvent.removeMonitor(keyMonitor) }
+        keyMonitor = nil
+    }
+
     private func save() {
-        onSave(title.trimmingCharacters(in: .whitespacesAndNewlines), markdown, sectionID)
+        onSave(markdown, sectionID)
         dismiss()
     }
 }

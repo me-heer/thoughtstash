@@ -19,7 +19,7 @@ private struct CopperCommands: Commands {
     var body: some Commands {
         CommandGroup(replacing: .newItem) {
             command(.copperFocusComposer)
-            command(.copperNewLongform)
+            command(.copperNewNote)
             command(.copperNewSection)
         }
 

@@ -12,16 +12,27 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItem: NSStatusItem!
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        NSApp.setActivationPolicy(.accessory)
+        NSApp.setActivationPolicy(.regular)
         panelController = CopperPanelController(store: Self.store)
-        captureService = CaptureService(store: Self.store) { [weak self] in
-            self?.panelController.show(animated: false)
-        }
+        captureService = CaptureService(
+            store: Self.store,
+            shouldFocusComposer: { [weak self] in
+                self?.panelController.window?.isKeyWindow == true
+            },
+            showPanel: { [weak self] in
+                self?.panelController.show(animated: false)
+            }
+        )
         captureService.start()
         notesKeyMonitor = NotesKeyMonitor(targetWindow: panelController.window)
         notesKeyMonitor.start()
         configureStatusItem()
         panelController.show()
+    }
+
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        panelController.show()
+        return true
     }
 
     private func configureStatusItem() {
@@ -30,7 +41,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let menu = NSMenu()
         menu.addItem(withTitle: "Show Copper", action: #selector(showCopper), keyEquivalent: " ")
         menu.addItem(withTitle: "Capture Selected Text", action: #selector(captureSelectedText), keyEquivalent: "")
-        menu.addItem(withTitle: "New Longform Note…", action: #selector(newLongform), keyEquivalent: "")
+        menu.addItem(withTitle: "New Note…", action: #selector(newNote), keyEquivalent: "")
         menu.addItem(withTitle: "New Section…", action: #selector(newSection), keyEquivalent: "")
         menu.addItem(.separator())
         menu.addItem(withTitle: "Settings…", action: #selector(openSettings), keyEquivalent: ",")
@@ -45,10 +56,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc private func captureSelectedText() { captureService.captureSelection() }
 
-    @objc private func newLongform() {
+    @objc private func newNote() {
         panelController.show()
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.08) {
-            NotificationCenter.default.post(name: .copperNewLongform, object: nil)
+            NotificationCenter.default.post(name: .copperNewNote, object: nil)
         }
     }
 
@@ -72,7 +83,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 @MainActor
 final class CopperPanelController: NSWindowController, NSWindowDelegate {
     init(store: CopperStore) {
-        let panel = NSPanel(
+        let panel = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 390, height: 700),
             styleMask: [.titled, .fullSizeContentView, .resizable, .closable],
             backing: .buffered,
@@ -84,9 +95,9 @@ final class CopperPanelController: NSWindowController, NSWindowDelegate {
         panel.standardWindowButton(.miniaturizeButton)?.isHidden = true
         panel.standardWindowButton(.zoomButton)?.isHidden = true
         panel.isMovableByWindowBackground = true
-        panel.level = .floating
+        panel.level = .normal
         panel.isReleasedWhenClosed = false
-        panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
+        panel.collectionBehavior = [.managed, .fullScreenAuxiliary]
         panel.minSize = NSSize(width: 360, height: 480)
         panel.backgroundColor = .clear
         panel.isOpaque = false
@@ -101,8 +112,8 @@ final class CopperPanelController: NSWindowController, NSWindowDelegate {
     func show(animated: Bool = true) {
         guard let panel = window else { return }
         guard !panel.isVisible else {
-            panel.makeKeyAndOrderFront(nil)
-            NSApp.activate(ignoringOtherApps: true)
+            reveal(panel)
+            focusComposer()
             return
         }
 
@@ -116,11 +127,8 @@ final class CopperPanelController: NSWindowController, NSWindowDelegate {
 
         guard animated else {
             panel.alphaValue = 1
-            NSApp.unhide(nil)
-            panel.makeKeyAndOrderFront(nil)
-            panel.orderFrontRegardless()
-            NSApp.activate(ignoringOtherApps: true)
-            NotificationCenter.default.post(name: .copperFocusComposer, object: nil)
+            reveal(panel)
+            focusComposer()
             return
         }
 
@@ -129,10 +137,7 @@ final class CopperPanelController: NSWindowController, NSWindowDelegate {
         panel.alphaValue = 0
         panel.setFrame(startFrame, display: false)
 
-        NSApp.unhide(nil)
-        panel.makeKeyAndOrderFront(nil)
-        panel.orderFrontRegardless()
-        NSApp.activate(ignoringOtherApps: true)
+        reveal(panel)
 
         NSAnimationContext.runAnimationGroup { context in
             context.duration = 0.22
@@ -141,7 +146,26 @@ final class CopperPanelController: NSWindowController, NSWindowDelegate {
             panel.animator().setFrame(restingFrame, display: true)
         }
 
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+        focusComposer()
+    }
+
+    private func reveal(_ panel: NSWindow) {
+        NSApp.unhide(nil)
+        NSApp.activate(ignoringOtherApps: true)
+        panel.makeKeyAndOrderFront(nil)
+        panel.orderFrontRegardless()
+
+        // Status-menu actions run while AppKit is dismissing the menu. Reasserting the
+        // window on the next run loop prevents that teardown from swallowing the show.
+        DispatchQueue.main.async { [weak panel] in
+            guard let panel else { return }
+            NSApp.activate(ignoringOtherApps: true)
+            panel.makeKeyAndOrderFront(nil)
+        }
+    }
+
+    private func focusComposer() {
+        DispatchQueue.main.async {
             NotificationCenter.default.post(name: .copperFocusComposer, object: nil)
         }
     }

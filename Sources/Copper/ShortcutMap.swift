@@ -88,10 +88,16 @@ enum ShortcutMap {
             group: .notes
         ),
         ShortcutEntry(
-            slug: "newLongform",
-            "New Longform Note…",
+            slug: "composerNewline",
+            "New Line in Quick Composer",
+            key: .return, modifiers: [.shift],
+            group: .notes
+        ),
+        ShortcutEntry(
+            slug: "newNote",
+            "New Note…",
             key: "n", modifiers: [.command, .shift],
-            notification: .copperNewLongform,
+            notification: .copperNewNote,
             group: .notes
         ),
         ShortcutEntry(
@@ -119,6 +125,20 @@ enum ShortcutMap {
             slug: "selectNext",
             "Select Next Note",
             key: .downArrow, modifiers: [.command],
+            notification: .copperSelectNext,
+            group: .selection
+        ),
+        ShortcutEntry(
+            slug: "vimSelectPrevious",
+            "Select Previous Note (Vim)",
+            key: "k", modifiers: [.command],
+            notification: .copperSelectPrevious,
+            group: .selection
+        ),
+        ShortcutEntry(
+            slug: "vimSelectNext",
+            "Select Next Note (Vim)",
+            key: "j", modifiers: [.command],
             notification: .copperSelectNext,
             group: .selection
         ),
@@ -206,21 +226,15 @@ enum ShortcutMap {
             group: .app
         ),
         ShortcutEntry(
-            slug: "toggleEditorSize",
-            "Expand/Collapse Editor",
-            key: .return, modifiers: [.command, .shift],
-            group: .editing
-        ),
-        ShortcutEntry(
             slug: "saveEditor",
-            "Save an editor",
+            "Save a note",
             group: .editing,
-            displayOverride: "⌘S or Return"
+            displayOverride: "⌘S"
         ),
         ShortcutEntry(
             slug: "cancelDialog",
-            "Cancel a dialog or editor",
-            group: .editing,
+            "Close Copper / cancel a dialog",
+            group: .app,
             displayOverride: "Escape"
         ),
     ]
@@ -241,12 +255,36 @@ enum ShortcutMap {
     /// `NSEvent` monitor can dispatch shortcuts deterministically instead of relying on
     /// AppKit menu key-equivalents (which can lose a race with a focused text field).
     static func matchingEntry(for event: NSEvent) -> ShortcutEntry? {
-        guard let char = event.charactersIgnoringModifiers?.lowercased().first else { return nil }
-        let modifiers = eventModifiers(from: event.modifierFlags)
+        matchingEntry(
+            keyCode: event.keyCode,
+            charactersIgnoringModifiers: event.charactersIgnoringModifiers,
+            modifierFlags: event.modifierFlags
+        )
+    }
+
+    static func matchingEntry(
+        keyCode: UInt16,
+        charactersIgnoringModifiers: String?,
+        modifierFlags: NSEvent.ModifierFlags
+    ) -> ShortcutEntry? {
+        let modifiers = eventModifiers(from: modifierFlags)
         return all.first { entry in
             guard entry.notification != nil, let key = entry.keyEquivalent else { return false }
-            return entry.modifiers == modifiers && String(key.character).lowercased().first == char
+            return entry.modifiers == modifiers
+                && keyMatches(key, keyCode: keyCode, charactersIgnoringModifiers: charactersIgnoringModifiers)
         }
+    }
+
+    private static func keyMatches(
+        _ key: KeyEquivalent,
+        keyCode: UInt16,
+        charactersIgnoringModifiers: String?
+    ) -> Bool {
+        // Delete keys are not guaranteed to provide charactersIgnoringModifiers. Match
+        // their hardware-independent virtual key codes before using character matching.
+        if key == .delete { return keyCode == 51 || keyCode == 117 }
+        guard let char = charactersIgnoringModifiers?.lowercased().first else { return false }
+        return String(key.character).lowercased().first == char
     }
 
     private static func eventModifiers(from flags: NSEvent.ModifierFlags) -> EventModifiers {

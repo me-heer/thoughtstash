@@ -19,7 +19,26 @@ final class NotesKeyMonitor {
     func start() {
         monitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
             guard let self,
-                  event.window === self.targetWindow,
+                  let targetWindow = self.targetWindow else {
+                return event
+            }
+
+            if (event.keyCode == 36 || event.keyCode == 76),
+               event.modifierFlags.contains(.shift) {
+                NSApp.sendAction(#selector(NSTextView.insertNewline(_:)), to: nil, from: nil)
+                return nil
+            }
+
+            guard event.window === targetWindow else {
+                return event
+            }
+
+            if event.keyCode == 53, targetWindow.attachedSheet == nil {
+                targetWindow.performClose(nil)
+                return nil
+            }
+
+            guard
                   let entry = ShortcutMap.matchingEntry(for: event),
                   let notification = entry.notification else {
                 return event

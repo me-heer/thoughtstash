@@ -5,28 +5,31 @@ struct ContentView: View {
     @EnvironmentObject private var store: CopperStore
     @State private var searchText = ""
     @State private var draft = ""
-    @State private var showsMarkdownPreview = false
     @State private var selectedIDs = Set<UUID>()
     @State private var editorContext: NoteEditorContext?
     @State private var expandedNote: CopperNote?
     @State private var isAddingSection = false
     @State private var isShowingShortcutGuide = false
     @State private var collapsedSections = Set<UUID>()
-    @State private var composerSectionOverride: UUID?
-    @FocusState private var isComposerFocused: Bool
+    @State private var isComposerFocused = false
+    @State private var composerFocusRequest = UUID()
     @FocusState private var isSearchFocused: Bool
 
+    private var searchQuery: String {
+        searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
     private var filteredNotes: [CopperNote] {
-        guard !searchText.isEmpty else { return store.notes }
+        guard !searchQuery.isEmpty else { return store.notes }
         return store.notes.filter {
-            $0.text.localizedCaseInsensitiveContains(searchText)
-                || ($0.title?.localizedCaseInsensitiveContains(searchText) ?? false)
+            $0.text.localizedCaseInsensitiveContains(searchQuery)
         }
     }
 
     private var orderedVisibleNotes: [CopperNote] {
-        store.sections.flatMap { section in
-            filteredNotes.filter { $0.sectionID == section.id }
+        store.sections.flatMap { section -> [CopperNote] in
+            guard !searchQuery.isEmpty || !collapsedSections.contains(section.id) else { return [] }
+            return filteredNotes.filter { $0.sectionID == section.id }
         }
     }
 
@@ -34,23 +37,11 @@ struct ContentView: View {
         store.inboxSection?.id ?? store.activeSectionID
     }
 
-    private var composerTargetSectionID: UUID {
-        composerSectionOverride ?? defaultSectionID
-    }
-
     var body: some View {
         let sheeted = withSheets(rootStack)
         let lifecycled = withLifecycleNotifications(sheeted)
         let handled = withSelectionNotifications(lifecycled)
         return handled
-            .onChange(of: draft) { _, newValue in
-                let shouldShow = containsMarkdown(newValue)
-                if shouldShow != showsMarkdownPreview {
-                    withAnimation(.spring(response: 0.32, dampingFraction: 0.86)) {
-                        showsMarkdownPreview = shouldShow
-                    }
-                }
-            }
             .animation(.snappy(duration: 0.2), value: selectedIDs)
     }
 
@@ -76,17 +67,13 @@ struct ContentView: View {
                 NoteEditor(
                     note: context.note,
                     sections: store.sections,
-                    initialSectionID: defaultSectionID,
-                    startExpanded: context.startExpanded
-                ) { title, markdown, sectionID in
-                    let kind: NoteKind = title.isEmpty ? .quick : .longform
+                    initialSectionID: defaultSectionID
+                ) { markdown, sectionID in
                     if let note = context.note {
                         withAnimation(.snappy(duration: 0.2)) {
                             store.updateNote(
                                 id: note.id,
                                 text: markdown,
-                                title: title,
-                                kind: kind,
                                 sectionID: sectionID
                             )
                         }
@@ -94,9 +81,7 @@ struct ContentView: View {
                         withAnimation(.snappy(duration: 0.28)) {
                             store.addNote(
                                 markdown,
-                                sectionID: sectionID,
-                                title: title.isEmpty ? nil : title,
-                                kind: kind
+                                sectionID: sectionID
                             )
                         }
                     }
@@ -117,13 +102,13 @@ struct ContentView: View {
     private func withLifecycleNotifications(_ content: some View) -> some View {
         content
             .onAppear {
-                DispatchQueue.main.async { isComposerFocused = true }
+                DispatchQueue.main.async { requestComposerFocus() }
             }
             .onReceive(NotificationCenter.default.publisher(for: .copperFocusComposer)) { _ in
-                DispatchQueue.main.async { isComposerFocused = true }
+                DispatchQueue.main.async { requestComposerFocus() }
             }
-            .onReceive(NotificationCenter.default.publisher(for: .copperNewLongform)) { _ in
-                editorContext = NoteEditorContext(note: nil, startExpanded: true)
+            .onReceive(NotificationCenter.default.publisher(for: .copperNewNote)) { _ in
+                editorContext = NoteEditorContext(note: nil)
             }
             .onReceive(NotificationCenter.default.publisher(for: .copperNewSection)) { _ in
                 isAddingSection = true
@@ -167,6 +152,17 @@ struct ContentView: View {
                 TextField("Search", text: $searchText)
                     .textFieldStyle(.plain)
                     .focused($isSearchFocused)
+                if !searchQuery.isEmpty {
+                    Button {
+                        searchText = ""
+                        isSearchFocused = true
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .foregroundStyle(.tertiary)
+                    }
+                    .buttonStyle(.plain)
+                    .help("Clear search")
+                }
             }
             .padding(.horizontal, 11)
             .frame(height: 34)
@@ -174,8 +170,8 @@ struct ContentView: View {
             .animation(.easeOut(duration: 0.18), value: isSearchFocused)
 
             Menu {
-                Button("New Longform Note…", systemImage: "doc.richtext") {
-                    editorContext = NoteEditorContext(note: nil, startExpanded: true)
+                Button("New Note…", systemImage: "square.and.pencil") {
+                    editorContext = NoteEditorContext(note: nil)
                 }
                 Button("New Section…", systemImage: "folder.badge.plus") {
                     isAddingSection = true
@@ -206,129 +202,129 @@ struct ContentView: View {
     }
 
     private var noteList: some View {
-        ScrollView {
-            LazyVStack(alignment: .leading, spacing: 18) {
-                ForEach(store.sections) { section in
-                    let sectionNotes = filteredNotes.filter { $0.sectionID == section.id }
-                    let isCollapsed = collapsedSections.contains(section.id)
-                    if !sectionNotes.isEmpty || searchText.isEmpty {
-                        Section {
-                            if !isCollapsed {
-                                Group {
-                                    if sectionNotes.isEmpty {
-                                        Text("No notes yet")
-                                            .font(.callout)
-                                            .foregroundStyle(.tertiary)
-                                            .frame(maxWidth: .infinity, alignment: .center)
-                                            .padding(.vertical, 16)
-                                    } else {
-                                        ForEach(sectionNotes) { note in
-                                            NoteRow(
-                                                note: note,
-                                                isSelected: selectedIDs.contains(note.id),
-                                                onSelect: { toggleSelection(note.id) }
-                                            )
-                                            .transition(.asymmetric(
-                                                insertion: .scale(scale: 0.92).combined(with: .opacity),
-                                                removal: .opacity
-                                            ))
-                                            .contextMenu { contextMenu(for: note) }
-                                        }
-                                    }
-                                }
-                                .transition(.move(edge: .top).combined(with: .opacity))
-                            }
-                        } header: {
-                            HStack {
-                                Button {
-                                    withAnimation(.snappy(duration: 0.25)) {
-                                        if isCollapsed { collapsedSections.remove(section.id) }
-                                        else { collapsedSections.insert(section.id) }
-                                    }
-                                } label: {
-                                    HStack(spacing: 6) {
-                                        Image(systemName: "chevron.right")
-                                            .font(.system(size: 9, weight: .bold))
-                                            .rotationEffect(.degrees(isCollapsed ? 0 : 90))
-                                        Text(section.name.uppercased())
-                                            .font(.system(size: 11, weight: .semibold))
-                                            .tracking(1.15)
-                                    }
-                                    .foregroundStyle(.secondary)
-                                }
-                                .buttonStyle(.plain)
-                                .animation(.easeInOut(duration: 0.2), value: isCollapsed)
-
-                                Rectangle()
-                                    .fill(.secondary.opacity(0.18))
-                                    .frame(height: 1)
-                                Spacer()
-                                if store.sections.count > 1 {
-                                    Menu {
-                                        Button("Delete Section", role: .destructive) {
-                                            withAnimation(.snappy(duration: 0.28)) {
-                                                store.deleteSection(section.id)
+        ScrollViewReader { proxy in
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: 14) {
+                    ForEach(store.sections) { section in
+                        let sectionNotes = filteredNotes.filter { $0.sectionID == section.id }
+                        let isCollapsed = searchQuery.isEmpty && collapsedSections.contains(section.id)
+                        if !sectionNotes.isEmpty || searchQuery.isEmpty {
+                            Section {
+                                if !isCollapsed {
+                                    Group {
+                                        if sectionNotes.isEmpty {
+                                            Text("No notes yet")
+                                                .font(.callout)
+                                                .foregroundStyle(.tertiary)
+                                                .frame(maxWidth: .infinity, alignment: .center)
+                                                .padding(.vertical, 16)
+                                        } else {
+                                            LazyVStack(spacing: 7) {
+                                                ForEach(sectionNotes) { note in
+                                                    NoteRow(
+                                                        note: note,
+                                                        isSelected: selectedIDs.contains(note.id),
+                                                        onSelect: { toggleSelection(note.id) }
+                                                    )
+                                                    .id(note.id)
+                                                    .transition(.asymmetric(
+                                                        insertion: .scale(scale: 0.92).combined(with: .opacity),
+                                                        removal: .opacity
+                                                    ))
+                                                    .contextMenu { contextMenu(for: note) }
+                                                }
                                             }
                                         }
-                                    } label: {
-                                        Image(systemName: "ellipsis")
-                                            .foregroundStyle(.tertiary)
                                     }
-                                    .menuStyle(.borderlessButton)
-                                    .fixedSize()
-                                    .hoverGlow(radius: 8)
+                                    .transition(.move(edge: .top).combined(with: .opacity))
+                                }
+                            } header: {
+                                HStack {
+                                    Button {
+                                        withAnimation(.snappy(duration: 0.25)) {
+                                            if isCollapsed { collapsedSections.remove(section.id) }
+                                            else { collapsedSections.insert(section.id) }
+                                        }
+                                    } label: {
+                                        HStack(spacing: 6) {
+                                            Image(systemName: "chevron.right")
+                                                .font(.system(size: 9, weight: .bold))
+                                                .rotationEffect(.degrees(isCollapsed ? 0 : 90))
+                                            Text(section.name.uppercased())
+                                                .font(.system(size: 11, weight: .semibold))
+                                                .tracking(1.15)
+                                        }
+                                        .foregroundStyle(.secondary)
+                                    }
+                                    .buttonStyle(.plain)
+                                    .animation(.easeInOut(duration: 0.2), value: isCollapsed)
+
+                                    Rectangle()
+                                        .fill(.secondary.opacity(0.18))
+                                        .frame(height: 1)
+                                    Spacer()
+                                    if store.sections.count > 1 {
+                                        Menu {
+                                            Button("Delete Section", role: .destructive) {
+                                                withAnimation(.snappy(duration: 0.28)) {
+                                                    store.deleteSection(section.id)
+                                                }
+                                            }
+                                        } label: {
+                                            Image(systemName: "ellipsis")
+                                                .foregroundStyle(.tertiary)
+                                        }
+                                        .menuStyle(.borderlessButton)
+                                        .fixedSize()
+                                        .hoverGlow(radius: 8)
+                                    }
                                 }
                             }
                         }
                     }
                 }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
             }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 8)
+            .onChange(of: primarySelectedNote?.id) { _, selectedID in
+                guard let selectedID else { return }
+                withAnimation(.easeOut(duration: 0.16)) {
+                    proxy.scrollTo(selectedID, anchor: .center)
+                }
+            }
         }
         .overlay {
-            if !searchText.isEmpty && filteredNotes.isEmpty {
-                ContentUnavailableView.search(text: searchText)
+            if !searchQuery.isEmpty && filteredNotes.isEmpty {
+                ContentUnavailableView.search(text: searchQuery)
             }
         }
     }
 
     private var composer: some View {
         VStack(alignment: .leading, spacing: 9) {
-            if showsMarkdownPreview {
-                ScrollView {
-                    MarkdownPreview(markdown: draft, compact: true)
-                        .font(.system(size: 13))
-                        .padding(.horizontal, 3)
-                }
-                .frame(maxHeight: 110)
-                .transition(.opacity.combined(with: .move(edge: .top)))
-                Divider()
-            }
-
             HStack(alignment: .bottom, spacing: 10) {
-                Menu {
-                    ForEach(store.sections) { section in
-                        Button(section.name) { composerSectionOverride = section.id }
+                ZStack(alignment: .topLeading) {
+                    if draft.isEmpty {
+                        Text("Add a note or a prompt")
+                            .font(.system(size: 14))
+                            .foregroundStyle(.tertiary)
+                            .allowsHitTesting(false)
+                            .padding(.top, 1)
                     }
-                } label: {
-                    Image(systemName: composerSectionOverride == nil ? "circle" : "circle.fill")
-                        .foregroundStyle(composerSectionOverride == nil ? .secondary : Color.accentColor)
-                        .frame(width: 24, height: 24)
+                    ComposerMarkdownEditor(
+                        text: $draft,
+                        focusRequest: composerFocusRequest,
+                        onFocusChange: { isComposerFocused = $0 },
+                        onSubmit: addDraft
+                    )
                 }
-                .menuStyle(.borderlessButton)
-                .menuIndicator(.hidden)
-                .fixedSize()
-
-                TextField("Add a note or a prompt", text: $draft, axis: .vertical)
-                    .textFieldStyle(.plain)
-                    .lineLimit(1...5)
-                    .focused($isComposerFocused)
-                    .onSubmit(addDraft)
+                .frame(height: 48)
 
                 if !draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                     Button(action: addDraft) {
-                        Image(systemName: "arrow.up.circle.fill")
+                        Image(systemName: "arrow.up")
+                            .font(.system(size: 13, weight: .semibold))
+                            .frame(width: 20, height: 20)
                     }
                     .buttonStyle(.plain)
                     .foregroundStyle(.tint)
@@ -366,7 +362,7 @@ struct ContentView: View {
             expandedNote = note
         }
         Button("Edit", systemImage: "pencil") {
-            editorContext = NoteEditorContext(note: note, startExpanded: note.isLongform)
+            editorContext = NoteEditorContext(note: note)
         }
         if ids.count > 1 {
             Button("Merge Notes", systemImage: "arrow.triangle.merge") {
@@ -396,6 +392,7 @@ struct ContentView: View {
     }
 
     private func toggleSelection(_ id: UUID) {
+        leaveTextInput()
         if selectedIDs.contains(id) { selectedIDs.remove(id) }
         else { selectedIDs.insert(id) }
     }
@@ -406,6 +403,7 @@ struct ContentView: View {
 
     private func selectRelative(_ offset: Int) {
         guard !orderedVisibleNotes.isEmpty else { return }
+        leaveTextInput()
         let currentIndex = primarySelectedNote.flatMap { current in
             orderedVisibleNotes.firstIndex(where: { $0.id == current.id })
         }
@@ -418,9 +416,17 @@ struct ContentView: View {
         selectedIDs = [orderedVisibleNotes[nextIndex].id]
     }
 
+    private func leaveTextInput() {
+        isComposerFocused = false
+        isSearchFocused = false
+        DispatchQueue.main.async {
+            NSApp.keyWindow?.makeFirstResponder(nil)
+        }
+    }
+
     private func editPrimarySelection() {
         guard let note = primarySelectedNote else { return }
-        editorContext = NoteEditorContext(note: note, startExpanded: note.isLongform)
+        editorContext = NoteEditorContext(note: note)
     }
 
     private func mergeSelection() {
@@ -446,18 +452,16 @@ struct ContentView: View {
         }
     }
 
-    private func containsMarkdown(_ text: String) -> Bool {
-        text.contains("**") || text.contains("*") || text.contains("# ")
-            || text.contains("- ") || text.contains("> ") || text.contains("```")
+    private func requestComposerFocus() {
+        composerFocusRequest = UUID()
     }
 
     private func addDraft() {
-        let target = composerTargetSectionID
         withAnimation(.snappy(duration: 0.28)) {
-            store.addNote(draft, sectionID: target)
+            store.addNote(draft, sectionID: defaultSectionID)
         }
         draft = ""
-        composerSectionOverride = nil
+        requestComposerFocus()
     }
 }
 
@@ -468,33 +472,39 @@ private struct NoteRow: View {
 
     var body: some View {
         Button(action: onSelect) {
-            HStack(alignment: .top, spacing: 10) {
-                Image(systemName: isSelected ? "checkmark.circle.fill" : (note.isDone ? "checkmark.circle" : "circle"))
-                    .foregroundStyle(isSelected ? Color.accentColor : .secondary)
-                    .padding(.top, 2)
-                    .symbolEffect(.bounce, value: note.isDone)
-                VStack(alignment: .leading, spacing: 5) {
-                    if note.isLongform {
-                        Label(note.title ?? "Untitled", systemImage: "doc.richtext")
-                            .font(.system(size: 14, weight: .semibold))
-                    }
-                    RichNoteText(note: note)
-                        .font(.system(size: 14))
-                        .foregroundStyle(note.isDone ? .secondary : .primary)
+            VStack(alignment: .leading, spacing: 4) {
+                Text(.init(note.headline))
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(note.isDone ? .secondary : .primary)
+                    .strikethrough(note.isDone)
+                    .lineLimit(2)
+                    .multilineTextAlignment(.leading)
+                if !note.bodyPreview.isEmpty {
+                    MarkdownPreview(markdown: note.bodyPreview, compact: true)
+                        .font(.system(size: 13))
+                        .foregroundStyle(.secondary)
                         .strikethrough(note.isDone)
-                        .lineLimit(note.isLongform ? 4 : 7)
+                        .lineLimit(4)
                         .multilineTextAlignment(.leading)
+                        .frame(maxHeight: 72, alignment: .top)
+                        .clipped()
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .padding(13)
-            .glassEffect(Glass.regular.interactive(), in: RoundedRectangle(cornerRadius: 12))
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 11)
+            .padding(.vertical, 9)
+            .glassEffect(
+                Glass.regular
+                    .tint(Color(nsColor: .controlBackgroundColor).opacity(0.2))
+                    .interactive(),
+                in: RoundedRectangle(cornerRadius: 10)
+            )
             .overlay {
-                RoundedRectangle(cornerRadius: 12)
-                    .stroke(isSelected ? Color.accentColor : .clear, lineWidth: 1.75)
+                RoundedRectangle(cornerRadius: 10)
+                    .stroke(isSelected ? Color.accentColor : .clear, lineWidth: 1.5)
             }
             .animation(.easeOut(duration: 0.15), value: isSelected)
-            .contentShape(RoundedRectangle(cornerRadius: 12))
+            .contentShape(RoundedRectangle(cornerRadius: 10))
         }
         .buttonStyle(.plain)
     }
@@ -507,39 +517,20 @@ private struct ExpandedNote: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             HStack {
-                Text(note.title ?? "Note").font(.headline)
+                Text(note.headline).font(.headline)
                 Spacer()
                 Button("Done") { dismiss() }
                     .keyboardShortcut(.cancelAction)
                     .buttonStyle(.glass)
             }
             ScrollView {
-                if note.isLongform {
-                    MarkdownPreview(markdown: note.text)
-                        .textSelection(.enabled)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                } else {
-                    RichNoteText(note: note)
-                        .textSelection(.enabled)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                }
+                MarkdownPreview(markdown: note.text)
+                    .textSelection(.enabled)
+                    .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
         .padding(24)
         .frame(width: 560, height: 440)
-    }
-}
-
-private struct RichNoteText: View {
-    let note: CopperNote
-
-    var body: some View {
-        if let data = note.richTextRTF,
-           let richText = RichTextCodec.attributedString(fromRTF: data) {
-            Text(AttributedString(richText))
-        } else {
-            Text(.init(note.text))
-        }
     }
 }
 

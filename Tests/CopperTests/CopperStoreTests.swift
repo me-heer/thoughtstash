@@ -52,20 +52,49 @@ final class CopperStoreTests: XCTestCase {
         XCTAssertEqual(store.notes.first?.sectionID, store.sections[0].id)
     }
 
-    func testLongformNotePersistsTitleKindAndMarkdown() throws {
+    func testFirstMeaningfulLineProvidesHeadlineAndRemainingBody() throws {
         let store = CopperStore(fileURL: fileURL)
-        store.addNote(
-            "# Plan\n\nThis is **important**.",
-            title: "Launch plan",
-            kind: .longform
-        )
+        store.addNote("# Launch plan\n\nThis is **important**.")
 
+        let note = try XCTUnwrap(store.notes.first)
+
+        XCTAssertEqual(note.headline, "Launch plan")
+        XCTAssertEqual(note.bodyPreview, "This is **important**.")
+    }
+
+    func testLegacyHeadingMigratesIntoCanonicalTextOnce() throws {
+        let sectionID = UUID()
+        let noteID = UUID()
+        let createdAt = Date(timeIntervalSince1970: 1_700_000_000)
+        let json: [String: Any] = [
+            "sections": [["id": sectionID.uuidString, "name": "Inbox"]],
+            "notes": [[
+                "id": noteID.uuidString,
+                "text": "This is **important**.",
+                "sectionID": sectionID.uuidString,
+                "createdAt": createdAt.timeIntervalSinceReferenceDate,
+                "isDone": true,
+                "title": "Launch plan",
+                "richTextRTF": Data("body-only".utf8).base64EncodedString()
+            ]],
+            "captureShortcut": "shift",
+            "captureInterval": 0.42
+        ]
+        let data = try JSONSerialization.data(withJSONObject: json)
+        try FileManager.default.createDirectory(at: temporaryDirectory, withIntermediateDirectories: true)
+        try data.write(to: fileURL)
+
+        let store = CopperStore(fileURL: fileURL)
+        let migrated = try XCTUnwrap(store.notes.first)
+        XCTAssertEqual(migrated.id, noteID)
+        XCTAssertEqual(migrated.createdAt, createdAt)
+        XCTAssertTrue(migrated.isDone)
+        XCTAssertEqual(migrated.text, "Launch plan\n\nThis is **important**.")
+        XCTAssertNil(migrated.richTextRTF)
+
+        store.updateNote(id: migrated.id, text: migrated.text)
         let reloaded = CopperStore(fileURL: fileURL)
-        let note = try XCTUnwrap(reloaded.notes.first)
-
-        XCTAssertEqual(note.title, "Launch plan")
-        XCTAssertEqual(note.kind, .longform)
-        XCTAssertEqual(note.text, "# Plan\n\nThis is **important**.")
+        XCTAssertEqual(reloaded.notes.first?.text, "Launch plan\n\nThis is **important**.")
     }
 
     func testRichTextPersistsAndIsClearedByPlainTextEdit() throws {

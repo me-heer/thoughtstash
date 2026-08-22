@@ -37,9 +37,7 @@ final class CopperStore: ObservableObject {
     func addNote(
         _ rawText: String,
         sectionID: UUID? = nil,
-        richTextRTF: Data? = nil,
-        title: String? = nil,
-        kind: NoteKind = .quick
+        richTextRTF: Data? = nil
     ) {
         let text = rawText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else { return }
@@ -47,9 +45,7 @@ final class CopperStore: ObservableObject {
         document.notes.insert(CopperNote(
             text: text,
             sectionID: destination,
-            richTextRTF: richTextRTF,
-            title: title,
-            kind: kind
+            richTextRTF: richTextRTF
         ), at: 0)
         save()
     }
@@ -57,20 +53,12 @@ final class CopperStore: ObservableObject {
     func updateNote(
         id: UUID,
         text: String,
-        title: String? = nil,
-        kind: NoteKind? = nil,
         sectionID: UUID? = nil
     ) {
         guard let index = document.notes.firstIndex(where: { $0.id == id }) else { return }
-        let cleaned = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !cleaned.isEmpty else { return }
-        document.notes[index].text = cleaned
+        guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+        document.notes[index].text = text
         document.notes[index].richTextRTF = nil
-        if let title {
-            let trimmedTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
-            document.notes[index].title = trimmedTitle.isEmpty ? nil : trimmedTitle
-        }
-        if let kind { document.notes[index].kind = kind }
         if let sectionID { document.notes[index].sectionID = sectionID }
         save()
     }
@@ -177,7 +165,7 @@ final class CopperStore: ObservableObject {
 extension Notification.Name {
     static let copperShortcutChanged = Notification.Name("CopperShortcutChanged")
     static let copperFocusComposer = Notification.Name("CopperFocusComposer")
-    static let copperNewLongform = Notification.Name("CopperNewLongform")
+    static let copperNewNote = Notification.Name("CopperNewNote")
     static let copperNewSection = Notification.Name("CopperNewSection")
     static let copperFocusSearch = Notification.Name("CopperFocusSearch")
     static let copperSelectNext = Notification.Name("CopperSelectNext")

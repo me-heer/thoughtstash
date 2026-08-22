@@ -6,6 +6,7 @@ import SwiftUI
 @MainActor
 final class CaptureService {
     private let store: CopperStore
+    private let shouldFocusComposer: () -> Bool
     private let showPanel: () -> Void
     private var localMonitor: Any?
     private var globalMonitor: GlobalShortcutMonitor?
@@ -14,8 +15,13 @@ final class CaptureService {
     private var toastWindow: NSPanel?
     private var observers: [NSObjectProtocol] = []
 
-    init(store: CopperStore, showPanel: @escaping () -> Void) {
+    init(
+        store: CopperStore,
+        shouldFocusComposer: @escaping () -> Bool,
+        showPanel: @escaping () -> Void
+    ) {
         self.store = store
+        self.shouldFocusComposer = shouldFocusComposer
         self.showPanel = showPanel
         installLocalMonitor()
         observers.append(NotificationCenter.default.addObserver(
@@ -66,6 +72,11 @@ final class CaptureService {
     }
 
     func captureSelection() {
+        if shouldFocusComposer() {
+            showPanel()
+            return
+        }
+
         guard AXIsProcessTrusted() else {
             requestAccessibility()
             return

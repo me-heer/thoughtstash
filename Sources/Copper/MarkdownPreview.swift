@@ -18,7 +18,7 @@ struct MarkdownPreview: View {
         switch block {
         case .heading(let level, let text):
             Text(.init(text))
-                .font(level == 1 ? .title : (level == 2 ? .title2 : .headline))
+                .font(headingFont(level: level))
                 .fontWeight(.semibold)
         case .bullet(let text):
             HStack(alignment: .firstTextBaseline, spacing: 8) {
@@ -47,6 +47,13 @@ struct MarkdownPreview: View {
         case .paragraph(let text):
             Text(.init(text))
         }
+    }
+
+    private func headingFont(level: Int) -> Font {
+        if compact {
+            return level == 1 ? .headline : (level == 2 ? .subheadline : .body)
+        }
+        return level == 1 ? .title : (level == 2 ? .title2 : .headline)
     }
 }
 
