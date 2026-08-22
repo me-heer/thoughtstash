@@ -2,7 +2,7 @@
   <img src="docs/icon.png" width="110" alt="Thought Stash icon">
 </p>
 
-<h1 align="center">Thought Stash</h1>
+<h1 align="center">Thought Stash (WIP)</h1>
 
 <p align="center">
   A local-only, native macOS scratchpad for times when you want to jot things down quickly.<br>
