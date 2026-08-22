@@ -74,7 +74,7 @@ No account, no sync, no analytics, no network calls.
 
 ## Repo layout
 
-| Path | |
+| Path | Contains |
 | --- | --- |
 | `Sources/ThoughtStash/` | The app |
 | `Icon/AppIcon.svg` | Icon artwork, the source of truth |
