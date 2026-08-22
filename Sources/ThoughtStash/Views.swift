@@ -342,7 +342,11 @@ struct ContentView: View {
     private var emptyStash: some View {
         VStack(spacing: 8) {
             Text("Thought Stash")
-                .font(.system(size: 25, weight: .semibold, design: .serif))
+                .font(.system(size: 25, weight: .semibold))
+                // `.fontDesign` here, not `design:` on the font — the root's
+                // `.fontDesign(theme.design)` overrides a design baked into a
+                // descendant's font, but not a nearer `.fontDesign`.
+                .fontDesign(.serif)
                 .foregroundStyle(.primary.opacity(0.9))
             Text("Select text anywhere, then \(captureShortcut)")
                 .font(.system(size: 11))
