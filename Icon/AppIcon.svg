@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Thought Stash app icon — "The Deck", structure S3.
+
+  A fanned stack of note cards on a graphite ground, the front card carrying an
+  accent title line over two lighter body lines. The title line is the accent
+  because that is what the app actually does: the first meaningful Markdown line
+  of a note becomes its card title.
+
+  Authored on a 1024 canvas. The icon body is inset to 824x824 (the standard
+  macOS icon grid) via the outer transform, so the deck geometry below is written
+  in its own full-bleed 1024 space.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="ground" x1="0" y1="0" x2="0.4" y2="1">
+      <stop offset="0" stop-color="#3A4250"/>
+      <stop offset="1" stop-color="#12151C"/>
+    </linearGradient>
+    <linearGradient id="gloss" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.20"/>
+      <stop offset="0.55" stop-color="#FFFFFF" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="card" x1="0" y1="0" x2="0.3" y2="1">
+      <stop offset="0" stop-color="#FFFFFF"/>
+      <stop offset="1" stop-color="#DDE2EE"/>
+    </linearGradient>
+  </defs>
+
+  <g transform="translate(100 100) scale(0.8047)">
+    <rect width="1024" height="1024" rx="230" fill="url(#ground)"/>
+    <rect width="1024" height="1024" rx="230" fill="url(#gloss)"/>
+
+    <g transform="translate(512 560)">
+      <rect x="-235" y="-260" width="470" height="290" rx="56" fill="#FFFFFF" opacity="0.26" transform="rotate(-9)"/>
+      <rect x="-235" y="-206" width="470" height="290" rx="56" fill="#FFFFFF" opacity="0.48" transform="rotate(-4.5)"/>
+      <rect x="-235" y="-150" width="470" height="290" rx="56" fill="url(#card)"/>
+      <rect x="-172" y="-88" width="300" height="34" rx="17" fill="#2C43D6"/>
+      <rect x="-172" y="-18" width="344" height="24" rx="12" fill="#12151C" opacity="0.26"/>
+      <rect x="-172" y="30" width="222" height="24" rx="12" fill="#12151C" opacity="0.26"/>
+    </g>
+
+    <rect width="1024" height="1024" rx="230" fill="none" stroke="#FFFFFF" stroke-opacity="0.12" stroke-width="3"/>
+  </g>
+</svg>

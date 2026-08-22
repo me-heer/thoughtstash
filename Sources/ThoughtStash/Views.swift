@@ -239,7 +239,7 @@ struct ContentView: View {
                             Section {
                                 if !isCollapsed {
                                     Group {
-                                        if sectionNotes.isEmpty {
+                                        if sectionNotes.isEmpty && !isStashEmpty {
                                             Text("No notes yet")
                                                 .font(.callout)
                                                 .foregroundStyle(.tertiary)
@@ -320,8 +320,43 @@ struct ContentView: View {
         .overlay {
             if !searchQuery.isEmpty && filteredNotes.isEmpty {
                 ContentUnavailableView.search(text: searchQuery)
+            } else if isStashEmpty {
+                emptyStash
             }
         }
+    }
+
+    /// True only when there is nothing to show at all — not while a search is
+    /// narrowing things down, which has its own empty state.
+    private var isStashEmpty: Bool {
+        store.notes.isEmpty && searchQuery.isEmpty
+    }
+
+    /// The one place the name appears in the window. It is the empty state rather
+    /// than permanent chrome because the panel has to stay usable at 360 points
+    /// wide, so a wordmark may not hold standing layout space — and this is the
+    /// state where there is room to spare and something worth explaining.
+    ///
+    /// Pinned to `.serif` on purpose: the wordmark keeps its face even when the
+    /// rest of the app is switched to mono or sans via `AppFontTheme`.
+    private var emptyStash: some View {
+        VStack(spacing: 8) {
+            Text("Thought Stash")
+                .font(.system(size: 25, weight: .semibold, design: .serif))
+                .foregroundStyle(.primary.opacity(0.9))
+            Text("Select text anywhere, then \(captureShortcut)")
+                .font(.system(size: 11))
+                .foregroundStyle(.tertiary)
+        }
+        .multilineTextAlignment(.center)
+        .padding(.horizontal, 26)
+        .padding(.bottom, 12)
+        .transition(.opacity)
+        .allowsHitTesting(false)
+    }
+
+    private var captureShortcut: String {
+        ShortcutMap.entry(slug: "captureSelection")?.displayString ?? "Shift, Shift"
     }
 
     private var composer: some View {

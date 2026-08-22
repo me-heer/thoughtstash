@@ -23,6 +23,27 @@ Thought Stash targets macOS 26+ and uses Apple's native Liquid Glass material (`
 
 Editing opens a spacious, focused document sheet with live Markdown styling. Headings, emphasis, lists, quotes, and code render in place as the source is typed, with syntax markers kept subtly visible so cursor movement remains stable. Every note is one Markdown document: its first meaningful line is the card title and the remaining lines form the preview. There is no separate title field or note type.
 
+## Identity
+
+The app icon is a fanned deck of three note cards on a graphite ground, the front card's
+title line carrying the accent. The accent lands on the title because that is the app's
+one structural rule made visible: the first meaningful Markdown line of a note becomes its
+card title. Artwork lives in `Icon/AppIcon.svg`; `Scripts/make-icon.sh` renders it to
+`Resources/AppIcon.icns`, which is checked in so an ordinary build needs no librsvg.
+
+The menu-bar item is the same deck reduced to what survives at 17 points: the solid front
+card under the tilted top edge of the card behind it. Two cards in outline collide at that
+size, so the back one is an edge rather than a shape. It is drawn in `StatusItemGlyph`
+rather than shipped as an asset because it has to be a template image to invert correctly
+in light and dark menu bars.
+
+The name appears in the window in exactly one place — the empty state, set in New York.
+It is not permanent chrome: a wordmark may not hold standing layout space in a panel that
+must stay usable at 360 points wide, and the empty panel is the one state with room to
+spare and something worth explaining. The wordmark is pinned to `.serif` regardless of the
+user's `AppFontTheme`, so it keeps its face when the rest of the app is switched to sans or
+mono. That exception is deliberate.
+
 ## Content model
 
 - **Note:** Markdown text entered in the composer, the full editor, or captured from another app. The first meaningful line is displayed as its title.
@@ -84,6 +105,7 @@ Commands are also listed in the macOS **Notes** menu, and the in-app keyboard sh
 ## Iteration checklist
 
 - Keep the compact panel readable at its 360-point minimum width.
+- Re-run `Scripts/make-icon.sh` after editing `Icon/AppIcon.svg`; the `.icns` is a build artifact that happens to be checked in.
 - Preserve captured formatting through save, reload, merge, and copy.
 - Maintain visible focus and selection states for keyboard navigation.
 - Prefer direct manipulation in the window; use the full editor for multiline writing and Markdown preview.

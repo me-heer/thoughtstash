@@ -37,7 +37,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func configureStatusItem() {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
-        statusItem.button?.image = NSImage(systemSymbolName: "square.stack.3d.up.fill", accessibilityDescription: "Thought Stash")
+        statusItem.button?.image = StatusItemGlyph.image()
         let menu = NSMenu()
         menu.addItem(withTitle: "Show Thought Stash", action: #selector(showThoughtStash), keyEquivalent: " ")
         menu.addItem(withTitle: "Capture Selected Text", action: #selector(captureSelectedText), keyEquivalent: "")
