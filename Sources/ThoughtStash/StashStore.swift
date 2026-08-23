@@ -34,6 +34,7 @@ final class StashStore: ObservableObject {
     var captureShortcut: CaptureShortcut { document.captureShortcut }
     var captureInterval: Double { document.captureInterval }
     var fontTheme: AppFontTheme { document.fontTheme }
+    var showsMenuBarItem: Bool { document.showsMenuBarItem }
 
     func addNote(
         _ rawText: String,
@@ -145,6 +146,13 @@ final class StashStore: ObservableObject {
         NotificationCenter.default.post(name: .stashShortcutChanged, object: nil)
     }
 
+    func setShowsMenuBarItem(_ isVisible: Bool) {
+        guard isVisible != document.showsMenuBarItem else { return }
+        document.showsMenuBarItem = isVisible
+        save()
+        NotificationCenter.default.post(name: .stashMenuBarVisibilityChanged, object: nil)
+    }
+
     func copy(_ ids: Set<UUID>, asList: Bool) {
         let selected = document.notes.filter { ids.contains($0.id) }
             .sorted { $0.createdAt < $1.createdAt }
@@ -178,6 +186,7 @@ final class StashStore: ObservableObject {
 
 extension Notification.Name {
     static let stashShortcutChanged = Notification.Name("StashShortcutChanged")
+    static let stashMenuBarVisibilityChanged = Notification.Name("StashMenuBarVisibilityChanged")
     static let stashFocusComposer = Notification.Name("StashFocusComposer")
     static let stashNewNote = Notification.Name("StashNewNote")
     static let stashNewSection = Notification.Name("StashNewSection")

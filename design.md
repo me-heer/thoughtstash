@@ -92,7 +92,7 @@ Secure Input can intentionally prevent macOS from exposing global keyboard event
 | Edit selected note | ⌘E |
 | Expand selected note | ⌥⌘Return |
 | Merge selected notes | ⇧⌘M |
-| Move selected notes to previous / next section | ⌥⌘← / ⌥⌘→ |
+| Move selected notes to previous / next section | ⌥⌘← / ⌥⌘→ or ⌥⌘K / ⌥⌘J |
 | Delete selected notes | ⌘Delete |
 | Delete active section | ⌥⌘Delete |
 | Save a note | ⌘S |

@@ -98,6 +98,22 @@ final class ShortcutMapTests: XCTestCase {
         XCTAssertEqual(next?.slug, "moveToNextSection")
     }
 
+    func testOptionCommandJAndKMoveBetweenSectionsInBothDirections() {
+        let next = ShortcutMap.matchingEntry(
+            keyCode: 38,
+            charactersIgnoringModifiers: "j",
+            modifierFlags: [.command, .option]
+        )
+        let previous = ShortcutMap.matchingEntry(
+            keyCode: 40,
+            charactersIgnoringModifiers: "k",
+            modifierFlags: [.command, .option]
+        )
+
+        XCTAssertEqual(next?.slug, "vimMoveToNextSection")
+        XCTAssertEqual(previous?.slug, "vimMoveToPreviousSection")
+    }
+
     /// Two entries answering the same chord means one of them is unreachable.
     func testNoTwoBindingsShareAChord() {
         var seen: [String: String] = [:]

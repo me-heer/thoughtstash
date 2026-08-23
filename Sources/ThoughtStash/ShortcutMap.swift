@@ -227,6 +227,20 @@ enum ShortcutMap {
             group: .sections
         ),
         ShortcutEntry(
+            slug: "vimMoveToNextSection",
+            "Move to Next Section (Vim)",
+            key: "j", modifiers: [.command, .option],
+            notification: .stashMoveToNextSection,
+            group: .sections
+        ),
+        ShortcutEntry(
+            slug: "vimMoveToPreviousSection",
+            "Move to Previous Section (Vim)",
+            key: "k", modifiers: [.command, .option],
+            notification: .stashMoveToPreviousSection,
+            group: .sections
+        ),
+        ShortcutEntry(
             slug: "deleteSelected",
             "Delete Selected Notes",
             key: .delete, modifiers: [.command],

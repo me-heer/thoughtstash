@@ -706,6 +706,11 @@ struct SettingsView: View {
             }
             .pickerStyle(.segmented)
 
+            Toggle("Show in menu bar", isOn: Binding(
+                get: { store.showsMenuBarItem },
+                set: { store.setShowsMenuBarItem($0) }
+            ))
+
             VStack(alignment: .leading) {
                 HStack {
                     Text("Double-tap speed")

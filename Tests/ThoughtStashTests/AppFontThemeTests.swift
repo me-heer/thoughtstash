@@ -45,6 +45,7 @@ final class AppFontThemeTests: XCTestCase {
 
         XCTAssertEqual(store.sections.map(\.name), ["Inbox"])
         XCTAssertEqual(store.fontTheme, .sans)
+        XCTAssertTrue(store.showsMenuBarItem)
     }
 
     func testEachThemeResolvesADistinctSystemFont() {

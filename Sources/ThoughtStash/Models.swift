@@ -112,22 +112,25 @@ struct StashDocument: Codable {
     var captureShortcut: CaptureShortcut
     var captureInterval: Double
     var fontTheme: AppFontTheme
+    var showsMenuBarItem: Bool
 
     init(
         sections: [StashSection],
         notes: [StashNote],
         captureShortcut: CaptureShortcut,
         captureInterval: Double,
-        fontTheme: AppFontTheme = .sans
+        fontTheme: AppFontTheme = .sans,
+        showsMenuBarItem: Bool = true
     ) {
         self.sections = sections
         self.notes = notes
         self.captureShortcut = captureShortcut
         self.captureInterval = captureInterval
         self.fontTheme = fontTheme
+        self.showsMenuBarItem = showsMenuBarItem
     }
 
-    // Hand-written so documents saved before the font setting existed still decode.
+    // Hand-written so documents saved before newer settings existed still decode.
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         sections = try container.decode([StashSection].self, forKey: .sections)
@@ -135,6 +138,7 @@ struct StashDocument: Codable {
         captureShortcut = try container.decode(CaptureShortcut.self, forKey: .captureShortcut)
         captureInterval = try container.decode(Double.self, forKey: .captureInterval)
         fontTheme = try container.decodeIfPresent(AppFontTheme.self, forKey: .fontTheme) ?? .sans
+        showsMenuBarItem = try container.decodeIfPresent(Bool.self, forKey: .showsMenuBarItem) ?? true
     }
 
     static var empty: StashDocument {

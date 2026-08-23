@@ -27,6 +27,14 @@ final class StashStoreTests: XCTestCase {
         XCTAssertEqual(reloaded.notes.map(\.text), ["Second prompt", "First prompt"])
     }
 
+    func testMenuBarVisibilityPersists() {
+        let store = StashStore(fileURL: fileURL)
+
+        store.setShowsMenuBarItem(false)
+
+        XCTAssertFalse(StashStore(fileURL: fileURL).showsMenuBarItem)
+    }
+
     func testMergeCombinesSelectedNotesChronologically() throws {
         let store = StashStore(fileURL: fileURL)
         store.addNote("First")

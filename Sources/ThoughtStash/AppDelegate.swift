@@ -9,7 +9,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var panelController: StashPanelController!
     private var captureService: CaptureService!
     private var notesKeyMonitor: NotesKeyMonitor!
-    private var statusItem: NSStatusItem!
+    private var statusItem: NSStatusItem?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.regular)
@@ -26,7 +26,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         captureService.start()
         notesKeyMonitor = NotesKeyMonitor(targetWindow: panelController.window)
         notesKeyMonitor.start()
-        configureStatusItem()
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(updateStatusItemVisibility),
+            name: .stashMenuBarVisibilityChanged,
+            object: nil
+        )
+        updateStatusItemVisibility()
         panelController.show()
     }
 
@@ -36,8 +42,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func configureStatusItem() {
-        statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
-        statusItem.button?.image = StatusItemGlyph.image()
+        let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
+        item.button?.image = StatusItemGlyph.image()
         let menu = NSMenu()
         menu.addItem(withTitle: "Show Thought Stash", action: #selector(showThoughtStash), keyEquivalent: " ")
         menu.addItem(withTitle: "Capture Selected Text", action: #selector(captureSelectedText), keyEquivalent: "")
@@ -49,7 +55,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(.separator())
         menu.addItem(withTitle: "Quit Thought Stash", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         menu.items.forEach { $0.target = self }
-        statusItem.menu = menu
+        item.menu = menu
+        statusItem = item
+    }
+
+    @objc private func updateStatusItemVisibility() {
+        if Self.store.showsMenuBarItem {
+            if statusItem == nil { configureStatusItem() }
+        } else if let statusItem {
+            NSStatusBar.system.removeStatusItem(statusItem)
+            self.statusItem = nil
+        }
     }
 
     @objc private func showThoughtStash() { panelController.show() }
