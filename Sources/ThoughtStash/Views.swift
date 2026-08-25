@@ -242,7 +242,16 @@ struct ContentView: View {
                 .foregroundStyle(.secondary)
             TextField("Search", text: $searchText)
                 .textFieldStyle(.plain)
-                .font(.system(size: 13))
+                // Explicit design so the field is laid out on the metrics of the face it
+                // actually renders in, rather than SF's.
+                .font(.system(size: 13, design: store.fontTheme.design))
+                // Optical centring, measured rather than guessed. A single-line field
+                // centres its *line box*, but the eye centres the cap-height band, and
+                // for a string with no descenders — "Search" — that band sits 5.5 device
+                // px (2.75pt) above the capsule's centre. Nudging down by 3pt puts the
+                // text's ink centre on the magnifier's, which measures dead centre.
+                // `offset` rather than padding: this must not change the pill's height.
+                .offset(y: 3)
                 .focused($isSearchFocused)
             if !searchQuery.isEmpty {
                 Button {
