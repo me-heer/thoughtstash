@@ -242,6 +242,7 @@ struct ContentView: View {
                 .foregroundStyle(.secondary)
             TextField("Search", text: $searchText)
                 .textFieldStyle(.plain)
+                .font(.system(size: 13))
                 .focused($isSearchFocused)
             if !searchQuery.isEmpty {
                 Button {
@@ -256,7 +257,12 @@ struct ContentView: View {
             }
         }
         .padding(.horizontal, 11)
-        .frame(height: 34)
+        // Symmetric padding with a floor, rather than a hard height: a hard height centres
+        // the field's frame, not its line box, and the three AppFontTheme faces don't share
+        // metrics — New York in particular rides visibly high inside a fixed 34pt.
+        // `minHeight` keeps the pill matched to the 34pt circular buttons beside it.
+        .padding(.vertical, 8)
+        .frame(minHeight: 34)
         .glassEffect(Glass.regular.tint(isSearchFocused ? Color.accentColor.opacity(0.15) : nil), in: Capsule())
         .glassEffectID("search", in: headerGlass)
         .animation(.easeOut(duration: 0.18), value: isSearchFocused)
@@ -288,18 +294,19 @@ struct ContentView: View {
             }
         } label: {
             Image(systemName: "ellipsis")
+                .font(.system(size: 13, weight: .medium))
+                .foregroundStyle(.secondary)
                 .frame(width: 34, height: 34)
                 .contentShape(Circle())
         }
-        .menuStyle(.borderlessButton)
+        // `.borderlessButton` hands the label to AppKit, which rasterises the glyph
+        // blurry, offsets it inside its own frame, and ignores `.glassEffect` entirely.
+        // `.button` with a plain button style draws the label as written.
+        .menuStyle(.button)
+        .buttonStyle(.plain)
         .menuIndicator(.hidden)
         .fixedSize()
-        // `.borderlessButton` sizes the menu to its glyph and ignores the label's frame,
-        // and `.glassEffect` on the label or the Menu renders nothing at all. So: pin the
-        // size here, then draw the glass behind it, or the overflow control ends up a
-        // bare glyph beside a search button that has a full 34pt disc.
-        .frame(width: 34, height: 34)
-        .background { Color.clear.glassEffect(Glass.regular.interactive(), in: Circle()) }
+        .glassEffect(Glass.regular.interactive(), in: Circle())
         .hoverGlow(radius: 10)
     }
 
