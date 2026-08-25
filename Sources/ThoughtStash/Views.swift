@@ -22,6 +22,11 @@ struct ContentView: View {
     @State private var fontToast: AppFontTheme?
     @State private var fontToastTick = 0
     @FocusState private var isSearchFocused: Bool
+    /// R6 header: the title row and the search field are the same row. Search is a
+    /// button at rest and morphs into the field when opened, so the panel gets a
+    /// permanent wordmark without spending a second row on it.
+    @State private var isSearchExpanded = false
+    @Namespace private var headerGlass
 
     private var searchQuery: String {
         searchText.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -135,7 +140,18 @@ struct ContentView: View {
                 isAddingSection = true
             }
             .onReceive(NotificationCenter.default.publisher(for: .stashFocusSearch)) { _ in
-                isSearchFocused = true
+                openSearch()
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .stashEscape)) { notification in
+                // Search first, panel second — Escape should undo the narrower thing.
+                if isSearchExpanded {
+                    closeSearch()
+                } else {
+                    // The monitor sends the window it matched; don't infer it from
+                    // `keyWindow`, which can be nil or a different window entirely.
+                    let panel = notification.object as? NSWindow ?? NSApp.keyWindow
+                    panel?.performClose(nil)
+                }
             }
             .onReceive(NotificationCenter.default.publisher(for: .stashShowShortcutGuide)) { _ in
                 isShowingShortcutGuide = true
@@ -172,60 +188,132 @@ struct ContentView: View {
     }
 
     private var topBar: some View {
-        HStack(spacing: 10) {
-            HStack(spacing: 9) {
-                Image(systemName: "magnifyingglass")
-                    .foregroundStyle(.secondary)
-                TextField("Search", text: $searchText)
-                    .textFieldStyle(.plain)
-                    .focused($isSearchFocused)
-                if !searchQuery.isEmpty {
-                    Button {
-                        searchText = ""
-                        isSearchFocused = true
-                    } label: {
-                        Image(systemName: "xmark.circle.fill")
-                            .foregroundStyle(.tertiary)
-                    }
-                    .buttonStyle(.plain)
-                    .help("Clear search")
+        GlassEffectContainer(spacing: 8) {
+            HStack(spacing: 8) {
+                if isSearchExpanded {
+                    searchField
+                } else {
+                    wordmark
+                    Spacer(minLength: 4)
+                    searchButton
                 }
+                overflowMenu
             }
-            .padding(.horizontal, 11)
-            .frame(height: 34)
-            .glassEffect(Glass.regular.tint(isSearchFocused ? Color.accentColor.opacity(0.15) : nil), in: Capsule())
-            .animation(.easeOut(duration: 0.18), value: isSearchFocused)
-
-            Menu {
-                Button("New Note…", systemImage: "square.and.pencil") {
-                    editorContext = NoteEditorContext(note: nil)
-                }
-                Button("New Section…", systemImage: "folder.badge.plus") {
-                    isAddingSection = true
-                }
-                Button("Keyboard Shortcuts…", systemImage: "keyboard") {
-                    isShowingShortcutGuide = true
-                }
-                Button("Reveal Notes File", systemImage: "doc") {
-                    NSWorkspace.shared.activateFileViewerSelecting([store.fileURL])
-                }
-                Divider()
-                SettingsLink {
-                    Label("Settings…", systemImage: "gearshape")
-                }
-            } label: {
-                Image(systemName: "ellipsis")
-                    .frame(width: 34, height: 34)
-                    .glassEffect(Glass.regular.interactive(), in: Circle())
-            }
-            .menuStyle(.borderlessButton)
-            .menuIndicator(.hidden)
-            .fixedSize()
-            .hoverGlow(radius: 10)
         }
         .padding(.horizontal, 12)
         .padding(.top, 12)
         .padding(.bottom, 10)
+        .animation(reduceMotion ? nil : .snappy(duration: 0.26), value: isSearchExpanded)
+    }
+
+    /// The one permanent appearance of the name in the window. Pinned to `.serif` with a
+    /// nearer `.fontDesign` than the root's, so it keeps New York when the rest of the
+    /// app is switched to sans or mono.
+    private var wordmark: some View {
+        Text("Thought Stash")
+            .font(.system(size: 20, weight: .semibold))
+            .fontDesign(.serif)
+            .foregroundStyle(.primary.opacity(0.92))
+            .lineLimit(1)
+            .fixedSize()
+            .transition(.opacity)
+    }
+
+    /// Shares `glassEffectID` with `searchField` so the circle grows into the capsule
+    /// rather than one view crossfading into the other.
+    private var searchButton: some View {
+        Button(action: openSearch) {
+            Image(systemName: "magnifyingglass")
+                .font(.system(size: 13, weight: .medium))
+                .foregroundStyle(.secondary)
+                .frame(width: 34, height: 34)
+                .glassEffect(Glass.regular.interactive(), in: Circle())
+                .glassEffectID("search", in: headerGlass)
+        }
+        .buttonStyle(.plain)
+        .help("Search (\(ShortcutMap.display(for: .stashFocusSearch) ?? "⌘F"))")
+        .accessibilityLabel("Search")
+        .hoverGlow(radius: 10)
+    }
+
+    private var searchField: some View {
+        HStack(spacing: 9) {
+            Image(systemName: "magnifyingglass")
+                .foregroundStyle(.secondary)
+            TextField("Search", text: $searchText)
+                .textFieldStyle(.plain)
+                .focused($isSearchFocused)
+            if !searchQuery.isEmpty {
+                Button {
+                    searchText = ""
+                    isSearchFocused = true
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .foregroundStyle(.tertiary)
+                }
+                .buttonStyle(.plain)
+                .help("Clear search")
+            }
+        }
+        .padding(.horizontal, 11)
+        .frame(height: 34)
+        .glassEffect(Glass.regular.tint(isSearchFocused ? Color.accentColor.opacity(0.15) : nil), in: Capsule())
+        .glassEffectID("search", in: headerGlass)
+        .animation(.easeOut(duration: 0.18), value: isSearchFocused)
+        // Leaving an empty field puts the wordmark back; a field with a query stays open
+        // so the filtered list keeps an obvious way out.
+        .onChange(of: isSearchFocused) { _, focused in
+            guard !focused, searchQuery.isEmpty else { return }
+            closeSearch()
+        }
+    }
+
+    private var overflowMenu: some View {
+        Menu {
+            Button("New Note…", systemImage: "square.and.pencil") {
+                editorContext = NoteEditorContext(note: nil)
+            }
+            Button("New Section…", systemImage: "folder.badge.plus") {
+                isAddingSection = true
+            }
+            Button("Keyboard Shortcuts…", systemImage: "keyboard") {
+                isShowingShortcutGuide = true
+            }
+            Button("Reveal Notes File", systemImage: "doc") {
+                NSWorkspace.shared.activateFileViewerSelecting([store.fileURL])
+            }
+            Divider()
+            SettingsLink {
+                Label("Settings…", systemImage: "gearshape")
+            }
+        } label: {
+            Image(systemName: "ellipsis")
+                .frame(width: 34, height: 34)
+                .contentShape(Circle())
+        }
+        .menuStyle(.borderlessButton)
+        .menuIndicator(.hidden)
+        .fixedSize()
+        // `.borderlessButton` sizes the menu to its glyph and ignores the label's frame,
+        // and `.glassEffect` on the label or the Menu renders nothing at all. So: pin the
+        // size here, then draw the glass behind it, or the overflow control ends up a
+        // bare glyph beside a search button that has a full 34pt disc.
+        .frame(width: 34, height: 34)
+        .background { Color.clear.glassEffect(Glass.regular.interactive(), in: Circle()) }
+        .hoverGlow(radius: 10)
+    }
+
+    private func openSearch() {
+        if !isSearchExpanded {
+            withAnimation(reduceMotion ? nil : .snappy(duration: 0.26)) { isSearchExpanded = true }
+        }
+        isSearchFocused = true
+    }
+
+    private func closeSearch() {
+        searchText = ""
+        isSearchFocused = false
+        withAnimation(reduceMotion ? nil : .snappy(duration: 0.26)) { isSearchExpanded = false }
     }
 
     private var noteList: some View {
