@@ -34,7 +34,9 @@ final class NotesKeyMonitor {
             }
 
             if event.keyCode == 53, targetWindow.attachedSheet == nil {
-                targetWindow.performClose(nil)
+                // The view decides what Escape means — collapse an open search field,
+                // or close the panel — because only it knows which state we're in.
+                NotificationCenter.default.post(name: .stashEscape, object: targetWindow)
                 return nil
             }
 

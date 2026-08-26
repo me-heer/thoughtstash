@@ -191,6 +191,10 @@ extension Notification.Name {
     static let stashNewNote = Notification.Name("StashNewNote")
     static let stashNewSection = Notification.Name("StashNewSection")
     static let stashFocusSearch = Notification.Name("StashFocusSearch")
+    /// Escape inside the panel. Routed through the view rather than handled in the key
+    /// monitor because what Escape means depends on view state: it collapses the search
+    /// field back to the title row if search is open, and otherwise closes the panel.
+    static let stashEscape = Notification.Name("StashEscape")
     static let stashSelectNext = Notification.Name("StashSelectNext")
     static let stashSelectPrevious = Notification.Name("StashSelectPrevious")
     static let stashExtendSelectionNext = Notification.Name("StashExtendSelectionNext")

@@ -23,7 +23,7 @@ Thought Stash targets macOS 26+ and uses Apple's native Liquid Glass material (`
 
 Editing opens a spacious, focused document sheet with live Markdown styling. Headings, emphasis, lists, quotes, and code render in place as the source is typed, with syntax markers kept subtly visible so cursor movement remains stable. Every note is one Markdown document: its first meaningful line is the card title and the remaining lines form the preview. There is no separate title field or note type.
 
-⇧⌘F takes that sheet into **focus mode**: the header, the divider, and the footer drop
+⇧⌘F takes that sheet into **focus mode**: the sheet's own header, divider and footer drop
 away, the text takes a 700-point column over a scrimmed glass window, and the only chrome
 left is one hairline capsule that returns when it is reached for — pointer near the top
 edge, ⌘ held, or the first two seconds after entering, so the way out is never hidden. ⎋
@@ -46,12 +46,31 @@ size, so the back one is an edge rather than a shape. It is drawn in `StatusItem
 rather than shipped as an asset because it has to be a template image to invert correctly
 in light and dark menu bars.
 
-The name appears in the window in exactly one place — the empty state, set in New York.
-It is not permanent chrome: a wordmark may not hold standing layout space in a panel that
-must stay usable at 360 points wide, and the empty panel is the one state with room to
-spare and something worth explaining. The wordmark is pinned to `.serif` regardless of the
-user's `AppFontTheme`, so it keeps its face when the rest of the app is switched to sans or
-mono. That exception is deliberate.
+The name appears in the window in two places, both set in New York and both pinned to
+`.serif` regardless of the user's `AppFontTheme`, so the wordmark keeps its face when the
+rest of the app is switched to sans or mono. That exception is deliberate.
+
+The first is the empty state, which is onboarding: it renders only while `notes.isEmpty`,
+so it is gone after the first capture and never returns.
+
+The second is the header, which is the actual mark. The title row and the search field are
+the same row: the name sits on the left with a circular search button and the overflow
+control on the right, and pressing ⌘F or the button morphs the row into the search field
+via a shared `glassEffectID`. Escape collapses it back; a field with a query in it stays
+open so a filtered list keeps an obvious way out.
+
+That shape was chosen because it costs nothing. A search field that is empty almost all of
+the time does not need to hold a full-width row open for a state you are in for seconds,
+and trading it for a button buys a permanent wordmark at zero vertical cost. The wordmark
+is set at 20 points — roughly 1.5x the 14-point note title — because at anything near body
+size it reads as a stray label rather than a title.
+
+Two AppKit details the header depends on. `.borderlessButton` menus size themselves to
+their glyph and ignore the label's frame, and `.glassEffect` on such a menu — or on its
+label — renders nothing; the overflow control therefore pins its own 34-point frame and
+draws the glass behind itself, or it ends up a bare glyph beside a search button that has
+a full disc. And Escape is routed from `NotesKeyMonitor` through `.stashEscape` rather than
+closing the window directly, because what Escape means now depends on view state.
 
 ## Content model
 
@@ -123,4 +142,4 @@ Commands are also listed in the macOS **Notes** menu, and the in-app keyboard sh
 - Thought Stash requires macOS 26+ for Liquid Glass; there is no fallback path for older systems.
 - Save feedback is mechanical, not decorative: keep the whole Return response under ~400ms so a burst of captures never queues up behind its own animation. Every part restarts from a save counter rather than accumulating.
 - Under Reduce Motion the save still confirms itself with a stationary accent flash and a cross-fading card. Silence is not an acceptable reduced state.
-- Ambient shortcut hints must stay hover/state-conditional — never occupy permanent layout space, since the panel must stay usable at 360 points wide.
+- Ambient shortcut hints must stay hover/state-conditional — never occupy permanent layout space, since the panel must stay usable at 360 points wide. The header wordmark is the one sanctioned exception, and it earns it by replacing the search row rather than adding to it: net layout cost is zero. Anything else asking for permanent space has to clear the same bar.

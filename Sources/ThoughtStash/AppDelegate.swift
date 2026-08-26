@@ -130,7 +130,12 @@ final class StashPanelController: NSWindowController, NSWindowDelegate {
         panel.backgroundColor = .clear
         panel.isOpaque = false
         panel.hasShadow = true
-        panel.contentView = NSHostingView(rootView: ContentView().environmentObject(store))
+        let host = NSHostingView(rootView: ContentView().environmentObject(store))
+        // `.fullSizeContentView` lets content draw under the title bar, but the hosting
+        // view still insets for it, which leaves a title-bar-sized gap above the header.
+        // There are no window controls to avoid — they're all hidden — so drop the inset.
+        host.safeAreaRegions = []
+        panel.contentView = host
         super.init(window: panel)
         panel.delegate = self
     }
