@@ -199,6 +199,13 @@ enum ShortcutMap {
             group: .editing
         ),
         ShortcutEntry(
+            slug: "focusMode",
+            "Focus Mode",
+            key: "f", modifiers: [.command, .shift],
+            notification: .stashFocusMode,
+            group: .editing
+        ),
+        ShortcutEntry(
             slug: "expandSelected",
             "Expand Selected Note",
             key: .return, modifiers: [.command, .option],

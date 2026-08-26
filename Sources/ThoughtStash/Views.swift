@@ -88,8 +88,13 @@ struct ContentView: View {
                 NoteEditor(
                     note: context.note,
                     sections: store.sections,
-                    initialSectionID: defaultSectionID
+                    initialSectionID: defaultSectionID,
+                    seedText: context.seedText,
+                    startsInFocusMode: context.startsInFocusMode
                 ) { markdown, sectionID in
+                    // The draft stays in the composer while the editor is open, so
+                    // cancelling gives it back. Saving is what consumes it.
+                    if context.seedText != nil { draft = "" }
                     if let note = context.note {
                         withAnimation(.snappy(duration: 0.2)) {
                             store.updateNote(
@@ -161,6 +166,7 @@ struct ContentView: View {
                 withAnimation(.bouncy(duration: 0.35, extraBounce: 0.1)) { store.toggleDone(selectedIDs) }
             }
             .onReceive(NotificationCenter.default.publisher(for: .stashEditSelected)) { _ in editPrimarySelection() }
+            .onReceive(NotificationCenter.default.publisher(for: .stashFocusMode)) { _ in enterFocusMode() }
             .onReceive(NotificationCenter.default.publisher(for: .stashExpandSelected)) { _ in expandedNote = primarySelectedNote }
             .onReceive(NotificationCenter.default.publisher(for: .stashMergeSelected)) { _ in mergeSelection() }
             .onReceive(NotificationCenter.default.publisher(for: .stashMoveToNextSection)) { _ in moveSelection(bySections: 1) }
@@ -488,6 +494,23 @@ struct ContentView: View {
         // A click re-anchors the keyboard selection wherever the pointer landed.
         selectionCursor = selectedIDs.contains(id) ? id : nil
         selectionAnchor = selectionCursor
+    }
+
+    /// ⇧⌘F from the panel. A draft in the composer wins — you are already mid-sentence —
+    /// then the selected note, then a new empty note.
+    private func enterFocusMode() {
+        if !draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isComposerFocused {
+            editorContext = NoteEditorContext(
+                note: nil,
+                seedText: draft,
+                startsInFocusMode: true
+            )
+            return
+        }
+        editorContext = NoteEditorContext(
+            note: primarySelectedNote,
+            startsInFocusMode: true
+        )
     }
 
     private func clearSelection() {

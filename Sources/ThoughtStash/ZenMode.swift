@@ -29,7 +29,7 @@ enum ZenVariant: String, CaseIterable, Identifiable {
 
     var tagline: String {
         switch self {
-        case .curtain: return "Full-window overlay, chrome on demand"
+        case .curtain: return "Full-window overlay, chrome on demand — shipped"
         case .desk: return "Its own window, quiet permanent status line"
         case .spotlight: return "Typewriter scroll, everything else dimmed"
         case .bloom: return "The composer grows into the whole panel"
@@ -167,73 +167,40 @@ private struct ZenKeyHint: View {
 
 // MARK: - 1 · Curtain
 
-/// A full-window overlay entered from the existing editor. Nothing on screen but the text
-/// until the pointer moves toward the top edge, at which point one hairline bar fades in.
+/// Shipped as the app's focus mode. The lab renders the real `FocusEditorSurface` rather
+/// than a copy of it, so the storybook cannot drift away from what ⇧⌘F actually opens.
 struct ZenCurtain: View {
     @Binding var text: String
-    @State private var chrome = false
+    @State private var sectionID = ZenCurtain.sections[0].id
     @State private var focusRequest = UUID()
-    @State private var chromeTask: Task<Void, Never>?
+    @State private var isCommandHeld = false
+    @State private var flagsMonitor: Any?
+
+    static let sections = [
+        StashSection(name: "Inbox"),
+        StashSection(name: "Reading"),
+        StashSection(name: "Later"),
+    ]
 
     var body: some View {
-        ZStack {
-            Color.clear
-                .glassEffect(.regular, in: Rectangle())
-                .ignoresSafeArea()
-            // The scrim is what makes it a curtain: the panel is still back there.
-            Color.black.opacity(0.34)
-                .ignoresSafeArea()
-
-            ZenColumn(text: $text, focusRequest: focusRequest)
-                .padding(.top, 46)
-                .padding(.bottom, 30)
+        FocusEditorSurface(
+            markdown: $text,
+            sectionID: $sectionID,
+            sections: Self.sections,
+            focusRequest: focusRequest,
+            isCommandHeld: isCommandHeld,
+            onExit: {},
+            onSave: {}
+        )
+        .onAppear {
+            flagsMonitor = NSEvent.addLocalMonitorForEvents(matching: .flagsChanged) { event in
+                isCommandHeld = event.modifierFlags.contains(.command)
+                return event
+            }
         }
-        .overlay(alignment: .top) { bar }
-        .overlay(alignment: .bottom) {
-            ZenKeyHint(keys: "⎋", label: "leave focus")
-                .padding(.bottom, 14)
-                .opacity(chrome ? 1 : 0)
-        }
-        .onContinuousHover { phase in
-            guard case .active(let point) = phase else { return reveal(false) }
-            reveal(point.y < 90)
-        }
-        .animation(.easeOut(duration: 0.22), value: chrome)
-        .onAppear { focusRequest = UUID() }
-    }
-
-    private var bar: some View {
-        HStack(spacing: 12) {
-            Text("Inbox")
-                .font(.system(size: 11.5, weight: .medium))
-            Divider().frame(height: 11)
-            ZenMeta(text: text)
-            Spacer(minLength: 24)
-            ZenKeyHint(keys: "⌘S", label: "save")
-            Image(systemName: "arrow.down.right.and.arrow.up.left")
-                .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(.secondary)
-        }
-        .padding(.horizontal, 14)
-        .frame(height: 34)
-        .frame(maxWidth: 700)
-        .glassEffect(.regular, in: Capsule())
-        .padding(.top, 12)
-        .opacity(chrome ? 1 : 0)
-        .offset(y: chrome ? 0 : -6)
-    }
-
-    private func reveal(_ value: Bool) {
-        chromeTask?.cancel()
-        guard value != chrome else { return }
-        if value {
-            chrome = true
-            return
-        }
-        chromeTask = Task {
-            try? await Task.sleep(for: .milliseconds(600))
-            guard !Task.isCancelled else { return }
-            chrome = false
+        .onDisappear {
+            if let flagsMonitor { NSEvent.removeMonitor(flagsMonitor) }
+            flagsMonitor = nil
         }
     }
 }

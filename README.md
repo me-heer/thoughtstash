@@ -49,6 +49,7 @@ signed build rather than from `swift run`.
 | Select previous / next note | ⌘↑ / ⌘↓ |
 | Copy selected notes | ⌥⌘C |
 | Edit selected note | ⌘E |
+| Focus mode (distraction-free editor) | ⇧⌘F |
 | Merge selected notes | ⇧⌘M |
 | Delete selected notes | ⌘⌫ |
 | Show every shortcut | ⌘/ |

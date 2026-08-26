@@ -1,5 +1,9 @@
 # Focus mode — four iterations
 
+**Curtain (1) shipped** as the app's focus mode — ⇧⌘F, described in
+[`../design.md`](../design.md). The lab renders the real `FocusEditorSurface`, so this page
+still shows exactly what ⇧⌘F opens; 2–4 remain unbuilt sketches.
+
 A runnable storybook for the distraction-free editor sketched in
 [`enhancements-plan.md`](enhancements-plan.md). Each frame is the real
 `LiveMarkdownEditor` on real Liquid Glass, so the variants can be typed in and compared
@@ -17,7 +21,7 @@ THOUGHTSTASH_ZEN_VARIANT=spotlight swift run ThoughtStash --zen-lab   # straight
 
 | # | Variant | Thesis | Enter | Exit |
 | --- | --- | --- | --- | --- |
-| 1 | **Curtain** | Full-window overlay over the editor; chrome appears only when the pointer reaches for the top edge | `⇧⌘F` from the note editor | `⎋` back to the editor, `⌘S` saves |
+| 1 | **Curtain** ✅ | Full-window overlay over the editor; chrome appears only when the pointer reaches for the top edge | `⇧⌘F` from the note editor | `⎋` back to the editor, `⌘S` saves |
 | 2 | **Desk** | A separate resizable window you leave open beside other apps, with one permanently quiet status line | `⇧⌘F` anywhere, or `⌘E` on a note | `⌘S` saves, `⌘W` closes |
 | 3 | **Spotlight** | Typewriter scrolling with every block but the caret's faded to 24% | A toggle *inside* 1 or 2, not a fifth mode | inherits its host |
 | 4 | **Bloom** | No overlay, no window: the composer grows upward until it is the whole panel | `⇧⌘F` while the composer has focus | `⎋` collapses, `⏎` still saves |
@@ -28,7 +32,11 @@ THOUGHTSTASH_ZEN_VARIANT=spotlight swift run ThoughtStash --zen-lab   # straight
 chrome at rest. Moving the pointer above y=90 fades in one hairline capsule — section,
 word and character count, `⌘S` — which fades back out 600 ms after the pointer leaves.
 
-*Costs one overlay state on `NoteEditor`. No window plumbing, no second save path.*
+Shipped: one overlay state on `NoteEditor`, no window plumbing and no second save path.
+⇧⌘F from the panel opens it directly — a composer draft wins, then the selected note, then
+a new empty note — which covers the "I want this while writing in the main input prompt"
+case without Bloom's separate surface. Keyboard-only reveal is ⌘ held; the bar also shows
+itself for the first 2.2 seconds so the way out is never a secret.
 
 ### 2 · Desk
 
@@ -63,16 +71,18 @@ a single gesture.
 
 *Panel-local. Reuses the composer's draft and its Return-to-save flow verbatim.*
 
-## Recommendation
+## Where this landed
 
-Ship **Bloom + Curtain**, with **Spotlight** as a toggle inside both.
+**Curtain shipped**, reached from both entry points rather than only the editor: ⇧⌘F inside
+the `⌘E` sheet, and ⇧⌘F from the panel, which hands the composer's draft straight into it.
+That turned out to cover the composer case well enough that **Bloom** was not built — one
+focus surface, two ways in, instead of two surfaces.
 
-They cover the two entry points you named without inventing a third surface: Bloom is the
-composer path, Curtain is the `⌘E` path, and both stay inside the panel's promise of quiet,
-temporary UI. Spotlight is a preference, not a mode — it changes how text renders, not where
-it lives.
+**Spotlight** stays a sketch. Its two halves exist as `dimsUnfocusedText` and `typewriter`
+on `LiveMarkdownEditor` and are off in the shipped mode; wiring them to a preference is a
+small follow-up once the dimming does a visible-range-only pass.
 
-**Desk** is the one to hold. A window that stays open beside other apps is a different
+**Desk** is held. A window that stays open beside other apps is a different
 product than a panel that appears and gets out of the way, and it drags in window
 restoration, per-window dirty state, and a second answer to "where is my note." Worth
 revisiting only if long-form writing turns out to be the main use rather than an occasional
@@ -81,12 +91,11 @@ one.
 ## Still to check
 
 - Long notes: Spotlight's dimming restyles the whole text storage on every selection change.
-  Fine at a few KB; needs a visible-range-only pass before it ships.
+  Fine at a few KB; needs a visible-range-only pass before it ships. Not on the shipped path.
 - Small laptop screens: Curtain at 700 pt inside a 1280 pt window is comfortable; below
   ~900 pt the column should shrink rather than the margins collapsing.
-- VoiceOver and keyboard-only: chrome that appears on pointer hover must also appear on
-  focus. Curtain's bar currently reveals on hover only.
-- Reduce Motion: Bloom's grow-into-the-panel needs a cross-fade fallback, same rule as the
-  save animation.
-- Unsaved-change recovery: Curtain inherits the editor's discard confirmation; Bloom
-  currently would not have one.
+- VoiceOver: the bar's buttons stay in the hierarchy at zero opacity, so they are reachable,
+  but an invisible focused control is still wrong. Reveal on VoiceOver focus is unsolved.
+- Reduce Motion: the shipped mode drops the bar's slide and the sheet's resize spring.
+- Unsaved-change recovery: Curtain inherits the editor's discard confirmation, and a
+  composer draft is only cleared once a save consumes it.

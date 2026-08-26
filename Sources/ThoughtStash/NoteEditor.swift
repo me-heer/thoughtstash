@@ -4,11 +4,15 @@ import SwiftUI
 struct NoteEditorContext: Identifiable {
     let id = UUID()
     let note: StashNote?
+    /// Text carried in from the quick composer, so ⇧⌘F mid-sentence doesn't drop it.
+    var seedText: String?
+    var startsInFocusMode = false
 }
 
 struct NoteEditor: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.appFontTheme) private var fontTheme
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     let sections: [StashSection]
     let onSave: (_ markdown: String, _ sectionID: UUID) -> Void
 
@@ -17,6 +21,8 @@ struct NoteEditor: View {
     @State private var isConfirmingDiscard = false
     @State private var focusRequest = UUID()
     @State private var keyMonitor: Any?
+    @State private var isFocusMode: Bool
+    @State private var isCommandHeld = false
     private let originalMarkdown: String
     private let originalSectionID: UUID
     private let isNewNote: Bool
@@ -25,38 +31,42 @@ struct NoteEditor: View {
         note: StashNote?,
         sections: [StashSection],
         initialSectionID: UUID,
+        seedText: String? = nil,
+        startsInFocusMode: Bool = false,
         onSave: @escaping (_ markdown: String, _ sectionID: UUID) -> Void
     ) {
         self.sections = sections
         self.onSave = onSave
-        let initialMarkdown = note?.text ?? ""
+        let initialMarkdown = note?.text ?? seedText ?? ""
         let initialSection = note?.sectionID ?? initialSectionID
         isNewNote = note == nil
         originalMarkdown = initialMarkdown
         originalSectionID = initialSection
         _markdown = State(initialValue: initialMarkdown)
         _sectionID = State(initialValue: initialSection)
+        _isFocusMode = State(initialValue: startsInFocusMode)
     }
 
     var body: some View {
-        VStack(spacing: 0) {
-            header
-            Divider()
-            LiveMarkdownEditor(text: $markdown, focusRequest: focusRequest, fontTheme: fontTheme)
-                .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 12))
-            .padding(18)
-
-            HStack {
-                Label("The first line becomes the note title", systemImage: "textformat")
-                Spacer()
-                Text("\(markdown.count) characters")
+        Group {
+            if isFocusMode {
+                FocusEditorSurface(
+                    markdown: $markdown,
+                    sectionID: $sectionID,
+                    sections: sections,
+                    focusRequest: focusRequest,
+                    isCommandHeld: isCommandHeld,
+                    onExit: { toggleFocusMode() },
+                    onSave: save
+                )
+            } else {
+                standardEditor
             }
-            .font(.caption)
-            .foregroundStyle(.secondary)
-            .padding(.horizontal, 20)
-            .padding(.bottom, 16)
         }
-        .frame(width: 760, height: 560)
+        .frame(
+            width: isFocusMode ? 900 : 760,
+            height: isFocusMode ? 640 : 560
+        )
         .interactiveDismissDisabled(isDirty)
         .onAppear {
             installKeyMonitor()
@@ -75,6 +85,26 @@ struct NoteEditor: View {
         }
     }
 
+    private var standardEditor: some View {
+        VStack(spacing: 0) {
+            header
+            Divider()
+            LiveMarkdownEditor(text: $markdown, focusRequest: focusRequest, fontTheme: fontTheme)
+                .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 12))
+            .padding(18)
+
+            HStack {
+                Label("The first line becomes the note title", systemImage: "textformat")
+                Spacer()
+                Text("\(markdown.count) characters")
+            }
+            .font(.caption)
+            .foregroundStyle(.secondary)
+            .padding(.horizontal, 20)
+            .padding(.bottom, 16)
+        }
+    }
+
     private var header: some View {
         HStack(spacing: 12) {
             Text(isNewNote ? "New Note" : "Edit Note")
@@ -87,6 +117,12 @@ struct NoteEditor: View {
             .fixedSize()
 
             Spacer()
+
+            Button { toggleFocusMode() } label: {
+                Image(systemName: "arrow.up.left.and.arrow.down.right")
+            }
+            .buttonStyle(.glass)
+            .help("Focus mode (\(ShortcutMap.display(for: .stashFocusMode) ?? "⇧⌘F"))")
 
             Button("Cancel") { cancel() }
                 .keyboardShortcut(.cancelAction)
@@ -104,9 +140,22 @@ struct NoteEditor: View {
         markdown != originalMarkdown || sectionID != originalSectionID
     }
 
+    private var isEmpty: Bool {
+        markdown.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
     private func cancel() {
         if isDirty { isConfirmingDiscard = true }
         else { dismiss() }
+    }
+
+    private func toggleFocusMode() {
+        withAnimation(reduceMotion ? .none : .snappy(duration: 0.24)) {
+            isFocusMode.toggle()
+        }
+        // A modifier released while the sheet was resizing never reports back.
+        isCommandHeld = false
+        refocusEditor()
     }
 
     private func refocusEditor() {
@@ -115,17 +164,36 @@ struct NoteEditor: View {
 
     private func installKeyMonitor() {
         guard keyMonitor == nil else { return }
-        keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
-            let modifiers = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
-            guard modifiers == .command,
-                  event.charactersIgnoringModifiers?.lowercased() == "s" else {
+        keyMonitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown, .flagsChanged]) { event in
+            if event.type == .flagsChanged {
+                // Holding ⌘ is the keyboard-only way to bring the focus-mode bar back.
+                if isFocusMode { isCommandHeld = event.modifierFlags.contains(.command) }
                 return event
             }
-            guard !markdown.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+
+            // The discard dialog owns its own keys while it is up.
+            guard !isConfirmingDiscard else { return event }
+
+            let modifiers = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+            if modifiers == .command, event.charactersIgnoringModifiers?.lowercased() == "s" {
+                guard !isEmpty else { return nil }
+                save()
                 return nil
             }
-            save()
-            return nil
+
+            if ShortcutMap.matchingEntry(for: event)?.notification == .stashFocusMode {
+                toggleFocusMode()
+                return nil
+            }
+
+            // In focus mode Escape steps back to the ordinary editor rather than throwing
+            // the note away — leaving the sheet is still Cancel's job.
+            if event.keyCode == 53, isFocusMode {
+                toggleFocusMode()
+                return nil
+            }
+
+            return event
         }
     }
 
@@ -135,6 +203,7 @@ struct NoteEditor: View {
     }
 
     private func save() {
+        guard !isEmpty else { return }
         onSave(markdown, sectionID)
         dismiss()
     }

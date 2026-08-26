@@ -200,6 +200,7 @@ extension Notification.Name {
     static let stashToggleDone = Notification.Name("StashToggleDone")
     static let stashEditSelected = Notification.Name("StashEditSelected")
     static let stashExpandSelected = Notification.Name("StashExpandSelected")
+    static let stashFocusMode = Notification.Name("StashFocusMode")
     static let stashMergeSelected = Notification.Name("StashMergeSelected")
     static let stashMoveToNextSection = Notification.Name("StashMoveToNextSection")
     static let stashMoveToPreviousSection = Notification.Name("StashMoveToPreviousSection")
