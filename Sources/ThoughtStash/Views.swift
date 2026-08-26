@@ -178,6 +178,7 @@ struct ContentView: View {
                     .foregroundStyle(.secondary)
                 TextField("Search", text: $searchText)
                     .textFieldStyle(.plain)
+                    .offset(y: -1)
                     .focused($isSearchFocused)
                 if !searchQuery.isEmpty {
                     Button {
