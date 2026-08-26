@@ -23,6 +23,15 @@ Thought Stash targets macOS 26+ and uses Apple's native Liquid Glass material (`
 
 Editing opens a spacious, focused document sheet with live Markdown styling. Headings, emphasis, lists, quotes, and code render in place as the source is typed, with syntax markers kept subtly visible so cursor movement remains stable. Every note is one Markdown document: its first meaningful line is the card title and the remaining lines form the preview. There is no separate title field or note type.
 
+⇧⌘F takes that sheet into **focus mode**: the sheet's own header, divider and footer drop
+away, the text takes a 700-point column over a scrimmed glass window, and the only chrome
+left is one hairline capsule that returns when it is reached for — pointer near the top
+edge, ⌘ held, or the first two seconds after entering, so the way out is never hidden. ⎋
+steps back to the ordinary editor rather than discarding the note; leaving the sheet is
+still Cancel's job. ⇧⌘F from the panel opens focus mode directly: a composer draft wins —
+you are already mid-sentence — then the selected note, then a new empty note. The draft
+stays in the composer until a save consumes it, so cancelling gives it back.
+
 ## Identity
 
 The app icon is a fanned deck of three note cards on a graphite ground, the front card's
@@ -109,6 +118,7 @@ Secure Input can intentionally prevent macOS from exposing global keyboard event
 | Copy selected as numbered list | ⇧⌘C |
 | Mark selected done / not done | ⌘D |
 | Edit selected note | ⌘E |
+| Focus mode / leave focus mode | ⇧⌘F / ⎋ |
 | Expand selected note | ⌥⌘Return |
 | Merge selected notes | ⇧⌘M |
 | Move selected notes to previous / next section | ⌥⌘← / ⌥⌘→ or ⌥⌘K / ⌥⌘J |

@@ -124,4 +124,21 @@ final class ShortcutMapTests: XCTestCase {
             seen[chord] = entry.slug
         }
     }
+
+    func testShiftCommandFMatchesFocusModeAndPlainCommandFStaysSearch() {
+        let focus = ShortcutMap.matchingEntry(
+            keyCode: 3,
+            charactersIgnoringModifiers: "f",
+            modifierFlags: [.command, .shift]
+        )
+        let search = ShortcutMap.matchingEntry(
+            keyCode: 3,
+            charactersIgnoringModifiers: "f",
+            modifierFlags: .command
+        )
+
+        XCTAssertEqual(focus?.slug, "focusMode")
+        XCTAssertEqual(focus?.notification, .stashFocusMode)
+        XCTAssertEqual(search?.slug, "focusSearch")
+    }
 }

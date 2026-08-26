@@ -35,6 +35,7 @@ private struct StashCommands: Commands {
             command(.stashCopySelectedAsList)
             command(.stashToggleDone)
             command(.stashEditSelected)
+            command(.stashFocusMode)
             command(.stashExpandSelected)
             command(.stashMergeSelected)
             command(.stashMoveToPreviousSection)
