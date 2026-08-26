@@ -10,9 +10,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var captureService: CaptureService!
     private var notesKeyMonitor: NotesKeyMonitor!
     private var statusItem: NSStatusItem?
+    private var zenLabController: ZenLabController?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.regular)
+
+        // Design storybook for the focus-mode iterations. Replaces the panel for this run
+        // so the variants can be compared without capture, hotkeys, or the notes file.
+        if ProcessInfo.processInfo.arguments.contains("--zen-lab")
+            || ProcessInfo.processInfo.environment["THOUGHTSTASH_ZEN_LAB"] == "1" {
+            zenLabController = ZenLabController()
+            zenLabController?.showWindow(nil)
+            NSApp.activate(ignoringOtherApps: true)
+            return
+        }
+
         panelController = StashPanelController(store: Self.store)
         captureService = CaptureService(
             store: Self.store,
